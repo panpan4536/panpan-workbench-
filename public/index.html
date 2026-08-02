@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#e91e63">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="潘潘工作台">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💅%3C/text%3E%3C/svg%3E">
+<title>潘潘美甲美睫工作台</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif; background:#f5f5f5; color:#333; padding-bottom:20px; }
+:root { --pink:#e91e63; --pink-light:#fce4ec; --pink-dark:#ad1457; --green:#4caf50; --orange:#ff9800; --red:#f44336; --blue:#2196f3; }
+.app-header { background:linear-gradient(135deg,var(--pink),var(--pink-dark)); color:#fff; padding:16px; text-align:center; position:sticky; top:0; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,.15); }
+.app-header h1 { font-size:20px; }
+.app-header .sub { font-size:12px; opacity:.85; margin-top:4px; }
+.container { max-width:600px; margin:0 auto; padding:12px; }
+.card { background:#fff; border-radius:12px; padding:16px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+.card h2 { font-size:16px; margin-bottom:12px; color:var(--pink); border-bottom:2px solid var(--pink-light); padding-bottom:8px; }
+.btn { display:inline-block; padding:12px 24px; border:none; border-radius:8px; font-size:15px; cursor:pointer; transition:all .2s; text-align:center; text-decoration:none; color:#fff; background:var(--pink); width:100%; }
+.btn:active { transform:scale(.97); }
+.btn-green { background:var(--green); }
+.btn-orange { background:var(--orange); }
+.btn-red { background:var(--red); }
+.btn-blue { background:var(--blue); }
+.btn-gray { background:#999; }
+.btn-sm { padding:8px 14px; font-size:13px; width:auto; }
+.btn-outline { background:#fff; color:var(--pink); border:2px solid var(--pink); }
+input,select,textarea { width:100%; padding:12px; border:2px solid #e0e0e0; border-radius:8px; font-size:15px; margin-bottom:10px; outline:none; transition:border .2s; }
+input:focus,select:focus,textarea:focus { border-color:var(--pink); }
+label { display:block; font-size:14px; color:#666; margin-bottom:4px; margin-top:8px; }
+.form-row { display:flex; gap:10px; }
+.form-row > * { flex:1; }
+.tab-bar { display:flex; background:#fff; position:sticky; bottom:0; box-shadow:0 -2px 8px rgba(0,0,0,.08); z-index:100; max-width:600px; margin:0 auto; }
+.tab-bar .tab { flex:1; padding:12px 4px; text-align:center; font-size:12px; color:#999; cursor:pointer; border-top:3px solid transparent; }
+.tab-bar .tab.active { color:var(--pink); border-top-color:var(--pink); font-weight:600; }
+.tab-bar .tab .icon { font-size:20px; display:block; margin-bottom:2px; }
+.badge { display:inline-block; background:var(--pink); color:#fff; padding:2px 8px; border-radius:10px; font-size:11px; margin-left:4px; }
+.list-item { display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #f0f0f0; }
+.list-item:last-child { border-bottom:none; }
+.list-item .info { flex:1; }
+.list-item .info .name { font-size:15px; font-weight:500; }
+.list-item .info .detail { font-size:12px; color:#999; margin-top:2px; }
+.list-item .actions { display:flex; gap:6px; }
+.empty { text-align:center; padding:30px; color:#999; font-size:14px; }
+.stat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:12px; }
+.stat-box { background:linear-gradient(135deg,var(--pink-light),#fff); border-radius:10px; padding:14px; text-align:center; }
+.stat-box .num { font-size:24px; font-weight:bold; color:var(--pink-dark); }
+.stat-box .label { font-size:12px; color:#888; margin-top:4px; }
+.stat-box.green { background:linear-gradient(135deg,#e8f5e9,#fff); }
+.stat-box.green .num { color:var(--green); }
+.stat-box.orange { background:linear-gradient(135deg,#fff3e0,#fff); }
+.stat-box.orange .num { color:var(--orange); }
+.stat-box.blue { background:linear-gradient(135deg,#e3f2fd,#fff); }
+.stat-box.blue .num { color:var(--blue); }
+.toast { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,.8); color:#fff; padding:12px 24px; border-radius:8px; font-size:14px; z-index:9999; opacity:0; transition:opacity .3s; pointer-events:none; }
+.toast.show { opacity:1; }
+.modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.5); z-index:200; display:none; align-items:center; justify-content:center; padding:20px; }
+.modal-overlay.show { display:flex; }
+.modal { background:#fff; border-radius:12px; padding:20px; width:100%; max-width:400px; max-height:80vh; overflow-y:auto; }
+.modal h3 { font-size:18px; margin-bottom:16px; color:var(--pink); text-align:center; }
+.modal-close { float:right; font-size:22px; color:#999; cursor:pointer; line-height:1; }
+.hidden { display:none !important; }
+.text-center { text-align:center; }
+.text-right { text-align:right; }
+.text-pink { color:var(--pink); }
+.text-green { color:var(--green); }
+.text-red { color:var(--red); }
+.text-orange { color:var(--orange); }
+.mt-10 { margin-top:10px; }
+.mt-20 { margin-top:20px; }
+.mb-10 { margin-bottom:10px; }
+.flex { display:flex; align-items:center; }
+.flex-between { display:flex; justify-content:space-between; align-items:center; }
+.gap-10 { gap:10px; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+table th { background:var(--pink-light); padding:8px; text-align:left; color:var(--pink-dark); }
+table td { padding:8px; border-bottom:1px solid #f0f0f0; }
+.section-title { font-size:14px; color:#999; margin:16px 0 8px; padding-left:4px; }
+.role-switch { display:flex; gap:10px; margin-bottom:16px; }
+.role-switch .role-btn { flex:1; padding:14px; border-radius:10px; text-align:center; border:2px solid #e0e0e0; background:#fff; cursor:pointer; font-size:15px; }
+.role-switch .role-btn.active { border-color:var(--pink); background:var(--pink-light); color:var(--pink-dark); font-weight:600; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+<h1>💅 潘潘美甲美睫工作台</h1>
+<div class="sub">业绩记录 · 员工管理 · 实时同步</div>
+</div>
+
+<!-- 登录页 -->
+<div id="loginPage" class="container">
+<div class="card">
+<h2>选择身份登录</h2>
+<div class="role-switch">
+<div class="role-btn active" onclick="switchRole('boss')">👑 老板端</div>
+<div class="role-btn" onclick="switchRole('staff')">💅 员工端</div>
+</div>
+<div id="bossLogin">
+<label>老板密码</label>
+<input type="password" id="bossPwd" placeholder="请输入老板密码">
+<button class="btn" onclick="loginBoss()">进入老板端</button>
+</div>
+<div id="staffLogin" class="hidden">
+<label>员工姓名</label>
+<input type="text" id="staffName" placeholder="请输入姓名">
+<label>员工密码</label>
+<input type="password" id="staffPwd" placeholder="请输入密码">
+<button class="btn btn-green" onclick="loginStaff()">进入员工端</button>
+</div>
+</div>
+</div>
+
+<!-- 主应用 -->
+<div id="mainApp" class="hidden">
+<!-- 首页 -->
+<div id="page-home" class="container">
+<div class="stat-grid" id="homeStats">
+<div class="stat-box"><div class="num" id="statToday">0</div><div class="label">今日业绩(元)</div></div>
+<div class="stat-box green"><div class="num" id="statMonth">0</div><div class="label">本月业绩(元)</div></div>
+<div class="stat-box orange"><div class="num" id="statRecords">0</div><div class="label">总记录数</div></div>
+<div class="stat-box blue"><div class="num" id="statStaff">0</div><div class="label">员工人数</div></div>
+</div>
+<div class="card">
+<h2>📊 快捷操作</h2>
+<div class="form-row">
+<button class="btn btn-green" onclick="navTo('record')">📝 录业绩</button>
+<button class="btn btn-blue" onclick="navTo('appointment')">📅 预约</button>
+</div>
+<div class="form-row mt-10">
+<button class="btn btn-orange" onclick="navTo('report')">📈 对账</button>
+<button class="btn" onclick="navTo('staff')">👥 员工</button>
+</div>
+</div>
+<div class="card" id="todayRecordsCard">
+<h2>🕐 今日记录</h2>
+<div id="todayRecordsList"></div>
+</div>
+</div>
+
+<!-- 录业绩 -->
+<div id="page-record" class="container hidden">
+<div class="card">
+<h2>📝 录入业绩</h2>
+<label>选择员工</label>
+<select id="recStaff"></select>
+<label>选择项目</label>
+<select id="recProject" onchange="onProjectChange()"></select>
+<label>客户类型</label>
+<select id="recType">
+<option value="散客">散客</option>
+<option value="团购">团购</option>
+<option value="会员卡">会员卡</option>
+</select>
+<div class="form-row">
+<div><label>金额(元)</label><input type="number" id="recAmount" placeholder="0" oninput="calcCommission()"></div>
+<div><label>提成(元)</label><input type="number" id="recCommission" placeholder="0" readonly></div>
+</div>
+<label>备注(可选)</label>
+<input type="text" id="recNote" placeholder="备注信息">
+<button class="btn btn-green mt-10" onclick="submitRecord()">✅ 提交业绩</button>
+</div>
+</div>
+
+<!-- 预约 -->
+<div id="page-appointment" class="container hidden">
+<div class="card">
+<h2>📅 预约管理</h2>
+<button class="btn btn-blue mb-10" onclick="showApptModal()">➕ 新建预约</button>
+<div id="apptList"></div>
+</div>
+</div>
+
+<!-- 员工管理 -->
+<div id="page-staff" class="container hidden">
+<div class="card">
+<h2>👥 员工管理</h2>
+<button class="btn mb-10" onclick="showStaffModal()">➕ 添加员工</button>
+<div id="staffList"></div>
+</div>
+<div class="card">
+<h2>💰 提成方案</h2>
+<div id="rulesList"></div>
+<button class="btn btn-orange mt-10" onclick="showRulesModal()">✏️ 修改提成方案</button>
+</div>
+</div>
+
+<!-- 项目管理 -->
+<div id="page-project" class="container hidden">
+<div class="card">
+<h2>💅 项目管理</h2>
+<button class="btn mb-10" onclick="showProjectModal()">➕ 添加项目</button>
+<div id="projectList"></div>
+</div>
+</div>
+
+<!-- 对账 -->
+<div id="page-report" class="container hidden">
+<div class="card">
+<h2>📈 业绩对账</h2>
+<div class="form-row">
+<div><label>开始日期</label><input type="date" id="reportStart"></div>
+<div><label>结束日期</label><input type="date" id="reportEnd"></div>
+</div>
+<button class="btn btn-orange mb-10" onclick="loadReport()">🔍 查询</button>
+<div id="reportResult"></div>
+</div>
+</div>
+</div>
+
+<!-- 底部导航 -->
+<div id="tabBar" class="tab-bar hidden">
+<div class="tab active" onclick="navTo('home')"><span class="icon">🏠</span>首页</div>
+<div class="tab" onclick="navTo('record')"><span class="icon">📝</span>录业绩</div>
+<div class="tab" onclick="navTo('appointment')"><span class="icon">📅</span>预约</div>
+<div class="tab" onclick="navTo('report')"><span class="icon">📈</span>对账</div>
+<div class="tab" onclick="navTo('staff')"><span class="icon">👥</span>管理</div>
+</div>
+
+<!-- 模态框 -->
+<div class="modal-overlay" id="modalOverlay">
+<div class="modal" id="modalContent"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ 全局状态 ============
+let appData = { rules:{}, projects:[], staff:[], records:[], appointments:[] };
+let currentRole = 'boss';
+let currentStaff = null;
+let currentPage = 'home';
+
+const API = {
+  get: () => fetch('/api/data').then(r => r.json()),
+  save: (data) => fetch('/api/data', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) }).then(r => r.json()),
+  verifyBoss: (pwd) => fetch('/api/verify-boss', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password:pwd}) }).then(r => r.json()),
+  exportReport: (body) => fetch('/api/export-report', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+};
+
+// ============ 工具 ============
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function showModal(html) {
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function monthStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  return d.substring(5).replace('-','/');
+}
+
+// ============ 数据加载 ============
+async function loadData() {
+  try {
+    appData = await API.get();
+    if (!appData.rules) appData.rules = { '散客':0, '团购':0, '会员卡':0 };
+    if (!appData.projects) appData.projects = [];
+    if (!appData.staff) appData.staff = [];
+    if (!appData.records) appData.records = [];
+    if (!appData.appointments) appData.appointments = [];
+    return true;
+  } catch(e) {
+    showToast('网络错误，请重试');
+    return false;
+  }
+}
+
+async function saveData() {
+  const res = await API.save(appData);
+  if (!res.success) showToast('保存失败');
+  return res.success;
+}
+
+// ============ 登录 ============
+function switchRole(role) {
+  currentRole = role;
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('bossLogin').classList.toggle('hidden', role !== 'boss');
+  document.getElementById('staffLogin').classList.toggle('hidden', role !== 'staff');
+}
+
+async function loginBoss() {
+  const pwd = document.getElementById('bossPwd').value.trim();
+  if (!pwd) { showToast('请输入密码'); return; }
+  const res = await API.verifyBoss(pwd);
+  if (res.success) {
+    currentRole = 'boss';
+    await enterApp();
+  } else {
+    showToast('密码错误');
+  }
+}
+
+async function loginStaff() {
+  const name = document.getElementById('staffName').value.trim();
+  const pwd = document.getElementById('staffPwd').value.trim();
+  if (!name || !pwd) { showToast('请输入完整'); return; }
+  await loadData();
+  const staff = appData.staff.find(s => s.name === name && s.password === pwd);
+  if (staff) {
+    currentRole = 'staff';
+    currentStaff = staff;
+    await enterApp();
+  } else {
+    showToast('姓名或密码错误');
+  }
+}
+
+async function enterApp() {
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('mainApp').classList.remove('hidden');
+  document.getElementById('tabBar').classList.remove('hidden');
+  await loadData();
+  renderHome();
+  navTo('home');
+}
+
+function logout() {
+  currentRole = 'boss';
+  currentStaff = null;
+  document.getElementById('mainApp').classList.add('hidden');
+  document.getElementById('tabBar').classList.add('hidden');
+  document.getElementById('loginPage').classList.remove('hidden');
+  document.getElementById('bossPwd').value = '';
+  document.getElementById('staffName').value = '';
+  document.getElementById('staffPwd').value = '';
+}
+
+// ============ 导航 ============
+function navTo(page) {
+  currentPage = page;
+  document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
+  const el = document.getElementById('page-' + page);
+  if (el) el.classList.remove('hidden');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const tabs = document.querySelectorAll('.tab');
+  const tabMap = { home:0, record:1, appointment:2, report:3, staff:4 };
+  if (tabs[tabMap[page]]) tabs[tabMap[page]].classList.add('active');
+
+  if (page === 'home') renderHome();
+  else if (page === 'record') renderRecord();
+  else if (page === 'appointment') renderAppointment();
+  else if (page === 'staff') renderStaff();
+  else if (page === 'project') renderProject();
+  else if (page === 'report') renderReport();
+}
+
+// ============ 首页 ============
+function renderHome() {
+  const today = todayStr();
+  const month = monthStr();
+  const todayRecs = appData.records.filter(r => r.date === today);
+  const monthRecs = appData.records.filter(r => r.date && r.date.startsWith(month));
+  const todayTotal = todayRecs.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
+  const monthTotal = monthRecs.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
+
+  document.getElementById('statToday').textContent = todayTotal.toFixed(0);
+  document.getElementById('statMonth').textContent = monthTotal.toFixed(0);
+  document.getElementById('statRecords').textContent = appData.records.length;
+  document.getElementById('statStaff').textContent = appData.staff.length;
+
+  const list = document.getElementById('todayRecordsList');
+  if (todayRecs.length === 0) {
+    list.innerHTML = '<div class="empty">今日暂无记录</div>';
+  } else {
+    list.innerHTML = todayRecs.map(r => `
+      <div class="list-item">
+        <div class="info">
+          <div class="name">${r.staffName} · ${r.projectName}</div>
+          <div class="detail">${r.type} | ¥${r.amount} | 提成¥${r.commission} | ${r.note||''}</div>
+        </div>
+      </div>`).join('');
+  }
+}
+
+// ============ 录业绩 ============
+function renderRecord() {
+  const staffSel = document.getElementById('recStaff');
+  const projSel = document.getElementById('recProject');
+
+  if (currentRole === 'staff' && currentStaff) {
+    staffSel.innerHTML = `<option value="${currentStaff.name}">${currentStaff.name}</option>`;
+    staffSel.disabled = true;
+  } else {
+    staffSel.innerHTML = appData.staff.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+    staffSel.disabled = false;
+  }
+
+  projSel.innerHTML = appData.projects.map(p => `<option value="${p.name}" data-price="${p.price||0}">${p.name} ¥${p.price||0}</option>`).join('');
+  if (appData.projects.length > 0) {
+    document.getElementById('recAmount').value = appData.projects[0].price || '';
+    onProjectChange();
+  }
+}
+
+function onProjectChange() {
+  const sel = document.getElementById('recProject');
+  const opt = sel.options[sel.selectedIndex];
+  if (opt) {
+    const price = opt.getAttribute('data-price') || 0;
+    document.getElementById('recAmount').value = price;
+    calcCommission();
+  }
+}
+
+function calcCommission() {
+  const amount = parseFloat(document.getElementById('recAmount').value) || 0;
+  const type = document.getElementById('recType').value;
+  const rate = appData.rules[type] || 0;
+  const commission = (amount * rate / 100).toFixed(2);
+  document.getElementById('recCommission').value = commission;
+}
+
+async function submitRecord() {
+  const staffName = document.getElementById('recStaff').value;
+  const projectName = document.getElementById('recProject').value;
+  const type = document.getElementById('recType').value;
+  const amount = parseFloat(document.getElementById('recAmount').value) || 0;
+  const commission = parseFloat(document.getElementById('recCommission').value) || 0;
+  const note = document.getElementById('recNote').value.trim();
+
+  if (!staffName || !projectName || amount <= 0) {
+    showToast('请填写完整');
+    return;
+  }
+
+  appData.records.push({
+    id: Date.now().toString(),
+    staffName, projectName, type, amount, commission, note,
+    date: todayStr(),
+    time: new Date().toTimeString().substring(0,5),
+    createdBy: currentRole === 'staff' ? currentStaff.name : 'boss'
+  });
+
+  if (await saveData()) {
+    showToast('✅ 录入成功');
+    document.getElementById('recNote').value = '';
+    document.getElementById('recAmount').value = '';
+    document.getElementById('recCommission').value = '';
+    navTo('home');
+  }
+}
+
+// ============ 预约 ============
+function renderAppointment() {
+  const list = document.getElementById('apptList');
+  if (appData.appointments.length === 0) {
+    list.innerHTML = '<div class="empty">暂无预约</div>';
+    return;
+  }
+  const sorted = [...appData.appointments].sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
+  list.innerHTML = sorted.map(a => `
+    <div class="list-item">
+      <div class="info">
+        <div class="name">${a.customerName} · ${a.projectName}</div>
+        <div class="detail">${a.date} ${a.time} | ${a.staffName||'未指定'} | ${a.phone||''} ${a.note ? '| '+a.note : ''}</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm btn-red" onclick="delAppt('${a.id}')">删</button>
+      </div>
+    </div>`).join('');
+}
+
+function showApptModal() {
+  const staffOpts = appData.staff.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+  const projOpts = appData.projects.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+  showModal(`
+    <h3>📅 新建预约</h3>
+    <label>客户姓名</label><input type="text" id="apptName" placeholder="客户姓名">
+    <label>联系电话</label><input type="tel" id="apptPhone" placeholder="手机号(可选)">
+    <label>预约日期</label><input type="date" id="apptDate">
+    <label>预约时间</label><input type="time" id="apptTime">
+    <label>选择项目</label><select id="apptProject">${projOpts}</select>
+    <label>指定员工</label><select id="apptStaff"><option value="">不指定</option>${staffOpts}</select>
+    <label>备注</label><input type="text" id="apptNote" placeholder="备注(可选)">
+    <button class="btn btn-blue mt-10" onclick="addAppt()">✅ 确认预约</button>
+    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
+  `);
+}
+
+async function addAppt() {
+  const customerName = document.getElementById('apptName').value.trim();
+  const phone = document.getElementById('apptPhone').value.trim();
+  const date = document.getElementById('apptDate').value;
+  const time = document.getElementById('apptTime').value;
+  const projectName = document.getElementById('apptProject').value;
+  const staffName = document.getElementById('apptStaff').value;
+  const note = document.getElementById('apptNote').value.trim();
+
+  if (!customerName || !date || !time || !projectName) {
+    showToast('请填写完整');
+    return;
+  }
+
+  appData.appointments.push({
+    id: Date.now().toString(),
+    customerName, phone, date, time, projectName, staffName, note
+  });
+
+  if (await saveData()) {
+    showToast('✅ 预约成功');
+    closeModal();
+    renderAppointment();
+  }
+}
+
+async function delAppt(id) {
+  appData.appointments = appData.appointments.filter(a => a.id !== id);
+  if (await saveData()) {
+    showToast('已删除');
+    renderAppointment();
+  }
+}
+
+// ============ 员工管理 ============
+function renderStaff() {
+  const list = document.getElementById('staffList');
+  if (appData.staff.length === 0) {
+    list.innerHTML = '<div class="empty">暂无员工，请添加</div>';
+  } else {
+    list.innerHTML = appData.staff.map(s => {
+      const recs = appData.records.filter(r => r.staffName === s.name);
+      const total = recs.reduce((sum,r) => sum + (parseFloat(r.commission)||0), 0);
+      return `
+      <div class="list-item">
+        <div class="info">
+          <div class="name">${s.name}</div>
+          <div class="detail">${recs.length}笔记录 | 总提成¥${total.toFixed(2)}</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-sm btn-red" onclick="delStaff('${s.name}')">删</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const rulesList = document.getElementById('rulesList');
+  rulesList.innerHTML = Object.entries(appData.rules).map(([type, rate]) => `
+    <div class="list-item">
+      <div class="info"><div class="name">${type}</div></div>
+      <div class="text-pink" style="font-size:18px;font-weight:bold">${rate}%</div>
+    </div>`).join('');
+}
+
+function showStaffModal() {
+  showModal(`
+    <h3>👥 添加员工</h3>
+    <label>员工姓名</label><input type="text" id="newStaffName" placeholder="姓名">
+    <label>登录密码</label><input type="text" id="newStaffPwd" placeholder="密码">
+    <button class="btn mt-10" onclick="addStaff()">✅ 添加</button>
+    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
+  `);
+}
+
+async function addStaff() {
+  const name = document.getElementById('newStaffName').value.trim();
+  const password = document.getElementById('newStaffPwd').value.trim();
+  if (!name || !password) { showToast('请填写完整'); return; }
+  if (appData.staff.find(s => s.name === name)) { showToast('员工已存在'); return; }
+  appData.staff.push({ name, password });
+  if (await saveData()) {
+    showToast('✅ 添加成功');
+    closeModal();
+    renderStaff();
+  }
+}
+
+async function delStaff(name) {
+  if (!confirm('确定删除员工「'+name+'」？相关业绩记录会保留。')) return;
+  appData.staff = appData.staff.filter(s => s.name !== name);
+  if (await saveData()) {
+    showToast('已删除');
+    renderStaff();
+  }
+}
+
+function showRulesModal() {
+  const inputs = Object.entries(appData.rules).map(([type, rate]) =>
+    `<label>${type} 提成比例 (%)</label><input type="number" id="rule_${type}" value="${rate}" placeholder="0">`
+  ).join('');
+  showModal(`
+    <h3>💰 修改提成方案</h3>
+    ${inputs}
+    <button class="btn btn-orange mt-10" onclick="saveRules()">✅ 保存</button>
+    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
+  `);
+}
+
+async function saveRules() {
+  Object.keys(appData.rules).forEach(type => {
+    const el = document.getElementById('rule_' + type);
+    if (el) appData.rules[type] = parseFloat(el.value) || 0;
+  });
+  if (await saveData()) {
+    showToast('✅ 已保存');
+    closeModal();
+    renderStaff();
+  }
+}
+
+// ============ 项目管理 ============
+function renderProject() {
+  const list = document.getElementById('projectList');
+  if (appData.projects.length === 0) {
+    list.innerHTML = '<div class="empty">暂无项目，请添加</div>';
+  } else {
+    list.innerHTML = appData.projects.map(p => `
+      <div class="list-item">
+        <div class="info">
+          <div class="name">${p.name}</div>
+          <div class="detail">默认价格 ¥${p.price||0}</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-sm btn-red" onclick="delProject('${p.name}')">删</button>
+        </div>
+      </div>`).join('');
+  }
+}
+
+function showProjectModal() {
+  showModal(`
+    <h3>💅 添加项目</h3>
+    <label>项目名称</label><input type="text" id="newProjName" placeholder="如: 美甲基础款">
+    <label>默认价格(元)</label><input type="number" id="newProjPrice" placeholder="0">
+    <button class="btn mt-10" onclick="addProject()">✅ 添加</button>
+    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
+  `);
+}
+
+async function addProject() {
+  const name = document.getElementById('newProjName').value.trim();
+  const price = parseFloat(document.getElementById('newProjPrice').value) || 0;
+  if (!name) { showToast('请输入项目名'); return; }
+  if (appData.projects.find(p => p.name === name)) { showToast('项目已存在'); return; }
+  appData.projects.push({ name, price });
+  if (await saveData()) {
+    showToast('✅ 添加成功');
+    closeModal();
+    renderProject();
+  }
+}
+
+async function delProject(name) {
+  if (!confirm('确定删除项目「'+name+'」？')) return;
+  appData.projects = appData.projects.filter(p => p.name !== name);
+  if (await saveData()) {
+    showToast('已删除');
+    renderProject();
+  }
+}
+
+// ============ 对账 ============
+function renderReport() {
+  const today = todayStr();
+  const monthAgo = new Date();
+  monthAgo.setMonth(monthAgo.getMonth() - 1);
+  const monthAgoStr = monthAgo.getFullYear() + '-' + String(monthAgo.getMonth()+1).padStart(2,'0') + '-' + String(monthAgo.getDate()).padStart(2,'0');
+  document.getElementById('reportStart').value = monthAgoStr;
+  document.getElementById('reportEnd').value = today;
+  loadReport();
+}
+
+async function loadReport() {
+  const start = document.getElementById('reportStart').value;
+  const end = document.getElementById('reportEnd').value;
+
+  let records;
+  if (currentRole === 'boss') {
+    const bossPwd = document.getElementById('bossPwd').value.trim() || '0911';
+    const res = await API.exportReport({ bossPassword: bossPwd, startDate: start, endDate: end });
+    records = res.records || [];
+  } else {
+    records = appData.records.filter(r => r.staffName === currentStaff.name && (!r.date || (r.date >= start && r.date <= end)));
+  }
+
+  const totalAmount = records.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
+  const totalCommission = records.reduce((s,r) => s + (parseFloat(r.commission)||0), 0);
+
+  let staffSummary = {};
+  records.forEach(r => {
+    if (!staffSummary[r.staffName]) staffSummary[r.staffName] = { count:0, amount:0, commission:0 };
+    staffSummary[r.staffName].count++;
+    staffSummary[r.staffName].amount += parseFloat(r.amount)||0;
+    staffSummary[r.staffName].commission += parseFloat(r.commission)||0;
+  });
+
+  let result = `
+    <div class="stat-grid">
+      <div class="stat-box"><div class="num">${records.length}</div><div class="label">总笔数</div></div>
+      <div class="stat-box green"><div class="num">${totalAmount.toFixed(0)}</div><div class="label">总金额(元)</div></div>
+      <div class="stat-box orange"><div class="num">${totalCommission.toFixed(0)}</div><div class="label">总提成(元)</div></div>
+    </div>
+    <div class="section-title">按员工汇总</div>
+    <table>
+      <tr><th>员工</th><th>笔数</th><th>金额</th><th>提成</th></tr>
+      ${Object.entries(staffSummary).map(([name, s]) => `
+        <tr><td>${name}</td><td>${s.count}</td><td>¥${s.amount.toFixed(0)}</td><td>¥${s.commission.toFixed(2)}</td></tr>
+      `).join('')}
+    </table>
+    <div class="section-title">明细</div>
+    <table>
+      <tr><th>日期</th><th>员工</th><th>项目</th><th>类型</th><th>金额</th><th>提成</th></tr>
+      ${records.slice().reverse().map(r => `
+        <tr><td>${fmtDate(r.date)}</td><td>${r.staffName}</td><td>${r.projectName}</td><td>${r.type}</td><td>¥${r.amount}</td><td>¥${r.commission}</td></tr>
+      `).join('')}
+    </table>
+  `;
+
+  document.getElementById('reportResult').innerHTML = result;
+}
+
+// ============ 初始化 ============
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// 点击modal外部关闭
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+</body>
+</html>
