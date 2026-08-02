@@ -84,10 +84,34 @@ app.get('/api/data', async (req, res) => {
       rules: { '散客': 0, '团购': 0, '会员卡': 0 },
       projects: [],
       staff: [],
+      members: [],
       records: [],
       appointments: []
     });
   }
+  // 字段补全（兼容旧数据）
+  if (!data.members) data.members = [];
+  if (!data.rules) data.rules = { '散客': 0, '团购': 0, '会员卡': 0 };
+  if (!data.projects) data.projects = [];
+  if (!data.staff) data.staff = [];
+  if (!data.records) data.records = [];
+  if (!data.appointments) data.appointments = [];
+  // 补全 projects 的 id 和 commissionRate
+  data.projects.forEach(p => {
+    if (!p.id) p.id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+    if (p.commissionRate === undefined) p.commissionRate = null;
+  });
+  // 补全 staff 的 id 和 commissionRates
+  data.staff.forEach(s => {
+    if (!s.id) s.id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+    if (!s.commissionRates) s.commissionRates = { '散客': null, '团购': null, '会员卡': null };
+  });
+  // 补全 members 的字段
+  data.members.forEach(m => {
+    if (!m.id) m.id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+    if (m.balance === undefined) m.balance = 0;
+    if (!m.rechargeHistory) m.rechargeHistory = [];
+  });
   res.json(data);
 });
 
