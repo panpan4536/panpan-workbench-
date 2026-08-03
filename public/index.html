@@ -96,6 +96,18 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 .tag-blue { background:#e3f2fd; color:var(--blue); }
 .tag-done { background:#c8e6c9; color:#2e7d32; }
 .tag-pending { background:#fff9c4; color:#f57f17; }
+.overview-card { background:linear-gradient(135deg,#fff8e1,#fff); border:2px solid #ffe082; border-radius:12px; padding:16px; margin-bottom:12px; }
+.overview-card h2 { font-size:16px; margin-bottom:12px; color:var(--orange); border-bottom:2px solid #ffe082; padding-bottom:8px; }
+.overview-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; }
+.overview-grid .item { padding:10px 4px; }
+.overview-grid .item .val { font-size:22px; font-weight:bold; }
+.overview-grid .item .lbl { font-size:11px; color:#888; margin-top:4px; }
+.overview-grid .item.income .val { color:var(--pink-dark); }
+.overview-grid .item.commission .val { color:var(--green); }
+.overview-grid .item.orders .val { color:var(--blue); }
+.report-actions { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.report-actions .btn { width:auto; flex:1; min-width:calc(50% - 4px); }
+.ta-textarea { width:100%; min-height:200px; padding:12px; border:2px solid #e0e0e0; border-radius:8px; font-size:12px; font-family:monospace; resize:vertical; }
 </style>
 </head>
 <body>
@@ -130,6 +142,14 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 <div id="mainApp" class="hidden">
 
 <div id="page-home" class="container">
+<div class="overview-card" id="todayOverview">
+<h2>📊 今日概览</h2>
+<div class="overview-grid">
+<div class="item income"><div class="val" id="ovIncome">¥0</div><div class="lbl">总业绩实收</div></div>
+<div class="item commission"><div class="val" id="ovCommission">¥0</div><div class="lbl">应发提成</div></div>
+<div class="item orders"><div class="val" id="ovOrders">0</div><div class="lbl">订单笔数</div></div>
+</div>
+</div>
 <div class="stat-grid" id="homeStats">
 <div class="stat-box"><div class="num" id="statToday">0</div><div class="label">今日业绩(元)</div></div>
 <div class="stat-box green"><div class="num" id="statMonth">0</div><div class="label">本月业绩(元)</div></div>
@@ -246,6 +266,7 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 <div><label>搜索关键词</label><input type="text" id="reportSearch" placeholder="项目/员工/备注/金额"></div>
 </div>
 <button class="btn btn-orange mb-10" onclick="loadReport()">🔍 查询</button>
+<div class="report-actions" id="reportActions"></div>
 <div id="reportResult"></div>
 </div>
 </div>
@@ -405,22 +426,36 @@ function renderHome() {
   const todayRecs = appData.records.filter(r => r.date === today);
   const monthRecs = appData.records.filter(r => r.date && r.date.startsWith(month));
   const todayTotal = todayRecs.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
+  const todayCommission = todayRecs.reduce((s,r) => s + (parseFloat(r.commission)||0), 0);
   const monthTotal = monthRecs.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
   const totalBalance = appData.members.reduce((s,m) => s + (parseFloat(m.balance)||0), 0);
-  document.getElementById('statToday').textContent = todayTotal.toFixed(0);
-  document.getElementById('statMonth').textContent = monthTotal.toFixed(0);
-  document.getElementById('statRecords').textContent = appData.records.length;
+
+  const ovIncome = document.getElementById('ovIncome');
+  const ovCommission = document.getElementById('ovCommission');
+  const ovOrders = document.getElementById('ovOrders');
+  if (currentRole === 'staff' && currentStaff) {
+    const myToday = todayRecs.filter(r => r.staffName === currentStaff.name);
+    const myMonth = monthRecs.filter(r => r.staffName === currentStaff.name);
+    if (ovIncome) ovIncome.textContent = '\xA5' + myToday.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
+    if (ovCommission) ovCommission.textContent = '\xA5' + myToday.reduce((s,r) => s + (parseFloat(r.commission)||0), 0).toFixed(0);
+    if (ovOrders) ovOrders.textContent = myToday.length;
+    document.getElementById('statToday').textContent = myToday.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
+    document.getElementById('statMonth').textContent = myMonth.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
+    document.getElementById('statRecords').textContent = appData.records.filter(r => r.staffName === currentStaff.name).length;
+  } else {
+    if (ovIncome) ovIncome.textContent = '\xA5' + todayTotal.toFixed(0);
+    if (ovCommission) ovCommission.textContent = '\xA5' + todayCommission.toFixed(0);
+    if (ovOrders) ovOrders.textContent = todayRecs.length;
+    document.getElementById('statToday').textContent = todayTotal.toFixed(0);
+    document.getElementById('statMonth').textContent = monthTotal.toFixed(0);
+    document.getElementById('statRecords').textContent = appData.records.length;
+  }
   document.getElementById('statStaff').textContent = appData.staff.length;
   document.getElementById('statMembers').textContent = appData.members.length;
   document.getElementById('statBalance').textContent = totalBalance.toFixed(0);
   const qa = document.getElementById('quickActions');
   if (currentRole === 'staff') {
     if (qa) qa.style.display = 'none';
-    const myToday = todayRecs.filter(r => r.staffName === currentStaff.name);
-    const myMonth = monthRecs.filter(r => r.staffName === currentStaff.name);
-    document.getElementById('statToday').textContent = myToday.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
-    document.getElementById('statMonth').textContent = myMonth.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
-    document.getElementById('statRecords').textContent = appData.records.filter(r => r.staffName === currentStaff.name).length;
   } else { if (qa) qa.style.display = ''; }
 
   const list = document.getElementById('todayRecordsList');
@@ -849,29 +884,45 @@ async function loadReport() {
 
   const totalAmount = records.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
   const totalCommission = records.reduce((s,r) => s + (parseFloat(r.commission)||0), 0);
+  const totalSubsidy = records.reduce((s,r) => s + (parseFloat(r.subsidy)||0), 0);
+  const totalDeduction = records.reduce((s,r) => s + (parseFloat(r.deduction)||0), 0);
+  const finalCommission = totalCommission + totalSubsidy - totalDeduction;
 
   let totalRecharge = 0, rechargeRecords = [];
   appData.members.forEach(m => { (m.rechargeHistory||[]).forEach(r => { if (r.date >= start && r.date <= end) { totalRecharge += parseFloat(r.amount)||0; rechargeRecords.push({ name: m.name, amount: r.amount, date: r.date, note: r.note }); } }); });
 
   let staffSummary = {};
   records.forEach(r => {
-    if (!staffSummary[r.staffName]) staffSummary[r.staffName] = { count:0, amount:0, commission:0 };
-    staffSummary[r.staffName].count++; staffSummary[r.staffName].amount += parseFloat(r.amount)||0; staffSummary[r.staffName].commission += parseFloat(r.commission)||0;
+    if (!staffSummary[r.staffName]) staffSummary[r.staffName] = { count:0, amount:0, commission:0, subsidy:0, deduction:0 };
+    staffSummary[r.staffName].count++;
+    staffSummary[r.staffName].amount += parseFloat(r.amount)||0;
+    staffSummary[r.staffName].commission += parseFloat(r.commission)||0;
+    staffSummary[r.staffName].subsidy += parseFloat(r.subsidy)||0;
+    staffSummary[r.staffName].deduction += parseFloat(r.deduction)||0;
   });
 
   const todayOnly = (start === end);
-  const exportBtn = todayOnly
-    ? '<button class="btn btn-blue mb-10" onclick="exportDayReport()">📋 导出 ' + start + ' 业绩文本</button>'
-    : '<button class="btn btn-blue mb-10" onclick="exportMonthReport()">📋 导出月度明细</button>';
+  const staffLabel = filterStaff ? '_' + filterStaff : '';
 
-  let result = '<div class="stat-grid"><div class="stat-box"><div class="num">' + records.length + '</div><div class="label">总笔数</div></div><div class="stat-box green"><div class="num">' + totalAmount.toFixed(0) + '</div><div class="label">总金额(元)</div></div><div class="stat-box orange"><div class="num">' + totalCommission.toFixed(0) + '</div><div class="label">总提成(元)</div></div></div><div class="stat-grid"><div class="stat-box purple"><div class="num">' + totalRecharge.toFixed(0) + '</div><div class="label">会员充值</div></div></div>';
+  let actionsHtml = '';
+  actionsHtml += '<button class="btn btn-sm btn-blue" onclick="showLedger()">📋 生成台账</button>';
+  if (todayOnly) {
+    actionsHtml += '<button class="btn btn-sm btn-green" onclick="exportDayLedger()">📄 导出单日对账单</button>';
+  } else {
+    actionsHtml += '<button class="btn btn-sm btn-green" onclick="exportMonthLedger()">📄 导出月对账单</button>';
+  }
+  actionsHtml += '<button class="btn btn-sm btn-purple" onclick="exportStaffLedger()">👤 导出员工对账单</button>';
+  if (currentRole === 'boss') {
+    actionsHtml += '<button class="btn btn-sm btn-orange" onclick="showImportModal()">📥 导入业绩</button>';
+  }
+  document.getElementById('reportActions').innerHTML = actionsHtml;
 
-  if (currentRole === 'boss' || currentRole === 'staff') result += exportBtn;
+  let result = '<div class="stat-grid"><div class="stat-box"><div class="num">' + records.length + '</div><div class="label">总笔数</div></div><div class="stat-box green"><div class="num">' + totalAmount.toFixed(0) + '</div><div class="label">总实收(元)</div></div><div class="stat-box orange"><div class="num">' + finalCommission.toFixed(0) + '</div><div class="label">应发提成(元)</div></div></div>';
 
-  result += '<div class="section-title">按员工汇总</div><table><tr><th>员工</th><th>笔数</th><th>金额</th><th>提成</th></tr>';
-  result += Object.entries(staffSummary).map(([n,s]) => '<tr><td>' + n + '</td><td>' + s.count + '</td><td>¥' + s.amount.toFixed(0) + '</td><td>¥' + s.commission.toFixed(2) + '</td></tr>').join('');
-  result += '</table><div class="section-title">业绩明细</div><table><tr><th>日期</th><th>时间</th><th>员工</th><th>项目</th><th>类型</th><th>金额</th><th>提成</th></tr>';
-  result += records.slice().reverse().map(r => '<tr><td>' + fmtDate(r.date) + '</td><td>' + (r.time||'') + '</td><td>' + esc(r.staffName) + '</td><td>' + esc(r.projectName) + '</td><td>' + esc(r.type) + '</td><td>¥' + r.amount + '</td><td>¥' + r.commission + '</td></tr>').join('');
+  result += '<div class="section-title">按员工汇总</div><table><tr><th>员工</th><th>笔数</th><th>实收</th><th>提成</th><th>补贴</th><th>扣款</th><th>应发</th></tr>';
+  result += Object.entries(staffSummary).map(([n,s]) => '<tr><td>' + esc(n) + '</td><td>' + s.count + '</td><td>\xA5' + s.amount.toFixed(0) + '</td><td>\xA5' + s.commission.toFixed(2) + '</td><td>\xA5' + s.subsidy.toFixed(0) + '</td><td>\xA5' + s.deduction.toFixed(0) + '</td><td>\xA5' + (s.commission + s.subsidy - s.deduction).toFixed(2) + '</td></tr>').join('');
+  result += '</table><div class="section-title">业绩明细</div><table><tr><th>日期</th><th>时间</th><th>员工</th><th>项目</th><th>类型</th><th>实收</th><th>提成</th></tr>';
+  result += records.slice().reverse().map(r => '<tr><td>' + fmtDate(r.date) + '</td><td>' + (r.time||'') + '</td><td>' + esc(r.staffName) + '</td><td>' + esc(r.projectName) + '</td><td>' + esc(r.type) + '</td><td>\xA5' + r.amount + '</td><td>\xA5' + r.commission + '</td></tr>').join('');
   result += '</table>';
 
   document.getElementById('reportResult').innerHTML = result;
@@ -881,52 +932,267 @@ async function loadReport() {
   window._reportEnd = end;
   window._reportTotalAmount = totalAmount;
   window._reportTotalCommission = totalCommission;
+  window._reportTotalSubsidy = totalSubsidy;
+  window._reportTotalDeduction = totalDeduction;
+  window._reportFinalCommission = finalCommission;
 }
 
-function exportDayReport() {
-  const records = window._reportRecords || [];
-  const staffSummary = window._reportStaffSummary || {};
-  const date = window._reportStart || todayStr();
-  const totalAmount = window._reportTotalAmount || 0;
-  const totalCommission = window._reportTotalCommission || 0;
+function buildLedgerText(records, staffSummary, start, end, totalAmount, totalCommission, totalSubsidy, totalDeduction, finalCommission) {
+  const now = new Date();
+  const exportTime = now.getFullYear() + '/' + (now.getMonth()+1) + '/' + now.getDate() + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0');
+  const range = (start === end) ? start : (start + ' ~ ' + end);
 
-  let text = '===== 潘潘美甲美睫工作台 =====\n';
-  text += '单日业绩报表 - ' + date + '\n';
-  text += '生成时间: ' + new Date().toLocaleString() + '\n\n';
-  text += '【汇总】\n';
-  text += '总笔数: ' + records.length + ' | 总金额: ¥' + totalAmount.toFixed(0) + ' | 总提成: ¥' + totalCommission.toFixed(0) + '\n\n';
-  text += '【按员工】\n';
-  Object.entries(staffSummary).forEach(([n,s]) => { text += n + ': ' + s.count + '笔 | 金额¥' + s.amount.toFixed(0) + ' | 提成¥' + s.commission.toFixed(2) + '\n'; });
-  text += '\n【明细】\n';
-  records.forEach(r => { text += r.date + ' ' + (r.time||'') + ' | ' + r.staffName + ' | ' + r.projectName + ' | ' + r.type + ' | ¥' + r.amount + ' | 提成¥' + r.commission + (r.note ? ' | ' + r.note : '') + '\n'; });
+  function pad(str, len, alignRight) {
+    str = String(str);
+    if (str.length >= len) return str;
+    var spaces = '';
+    for (var i = 0; i < len - str.length; i++) spaces += ' ';
+    return alignRight ? spaces + str : str + spaces;
+  }
 
-  downloadText('业绩报表_' + date + '.txt', text);
-}
+  function padCh(str, len, alignRight) {
+    str = String(str);
+    var visualLen = 0;
+    for (var i = 0; i < str.length; i++) {
+      visualLen += str.charCodeAt(i) > 127 ? 2 : 1;
+    }
+    if (visualLen >= len) return str;
+    var spaces = '';
+    for (var i = 0; i < len - visualLen; i++) spaces += ' ';
+    return alignRight ? spaces + str : str + spaces;
+  }
 
-function exportMonthReport() {
-  const records = window._reportRecords || [];
-  const staffSummary = window._reportStaffSummary || {};
-  const start = window._reportStart || '';
-  const end = window._reportEnd || '';
-  const totalAmount = window._reportTotalAmount || 0;
-  const totalCommission = window._reportTotalCommission || 0;
+  function fmtMoney(v) {
+    v = parseFloat(v) || 0;
+    var s = v.toFixed(2);
+    return '\xA5' + s;
+  }
 
-  let text = '===== 潘潘美甲美睫工作台 =====\n';
-  text += '月度业绩明细 - ' + start + ' 至 ' + end + '\n';
-  text += '生成时间: ' + new Date().toLocaleString() + '\n\n';
-  text += '【汇总】\n';
-  text += '总笔数: ' + records.length + ' | 总金额: ¥' + totalAmount.toFixed(0) + ' | 总提成: ¥' + totalCommission.toFixed(0) + '\n\n';
-  text += '【按员工】\n';
-  Object.entries(staffSummary).forEach(([n,s]) => { text += n + ': ' + s.count + '笔 | 金额¥' + s.amount.toFixed(0) + ' | 提成¥' + s.commission.toFixed(2) + '\n'; });
-  text += '\n【明细】\n';
-  let byDate = {};
-  records.forEach(r => { if (!byDate[r.date]) byDate[r.date] = []; byDate[r.date].push(r); });
-  Object.keys(byDate).sort().forEach(d => {
-    text += '\n--- ' + d + ' ---\n';
-    byDate[d].forEach(r => { text += '  ' + (r.time||'') + ' | ' + r.staffName + ' | ' + r.projectName + ' | ' + r.type + ' | ¥' + r.amount + ' | 提成¥' + r.commission + (r.note ? ' | ' + r.note : '') + '\n'; });
+  var text = '';
+  text += '\u6F58\u6F58\u7F8E\u7532\u7F8E\u776B \xB7 \u4E1A\u7EE9\u63D0\u6210\u53F0\u8D26\n';
+  text += '\u5BFC\u51FA\u65F6\u95F4\uFF1A' + exportTime + '\n';
+  text += '\u7EDF\u8BA1\u533A\u95F4\uFF1A' + range + '\n';
+  text += '==================================================\n\n';
+  text += '\u3010\u4E1A\u7EE9\u660E\u7EC6\u3011\n';
+  text += '\u5E8F\u53F7 | \u65E5\u671F       | \u5458\u5DE5   | \u9879\u76EE       | \u7C7B\u578B   | \u5B9E\u6536    | \u63D0\u6210    | \u8865\u8D34  | \u6263\u6B3E  | \u5907\u6CE8\n';
+  text += '--------------------------------------------------\n';
+
+  var sortedRecs = records.slice().sort(function(a,b) {
+    return (a.date + (a.time||'')).localeCompare(b.date + (b.time||''));
   });
 
-  downloadText('业绩明细_' + start + '_' + end + '.txt', text);
+  sortedRecs.forEach(function(r, i) {
+    var subsidy = parseFloat(r.subsidy) || 0;
+    var deduction = parseFloat(r.deduction) || 0;
+    var note = r.note || '-';
+    text += padCh(i+1, 4, true) + ' | ' +
+            padCh(r.date, 10) + ' | ' +
+            padCh(r.staffName, 6) + ' | ' +
+            padCh(r.projectName, 10) + ' | ' +
+            padCh(r.type, 5) + ' | ' +
+            padCh(fmtMoney(r.amount), 8, true) + ' | ' +
+            padCh(fmtMoney(r.commission), 8, true) + ' | ' +
+            padCh(fmtMoney(subsidy), 6, true) + ' | ' +
+            padCh(fmtMoney(deduction), 6, true) + ' | ' +
+            note + '\n';
+  });
+
+  text += '\n==================================================\n';
+  text += '\u3010\u6C47\u603B\u3011\n';
+  text += '\u8BA2\u5355\u7B14\u6570\uFF1A' + records.length + ' \u7B14\n';
+  text += '\u603B\u5B9E\u6536\u4E1A\u7EE9\uFF1A' + fmtMoney(totalAmount) + '\n';
+  text += '\u9879\u76EE\u63D0\u6210\u5408\u8BA1\uFF1A' + fmtMoney(totalCommission) + '\n';
+  text += '\u989D\u5916\u5956\u52B1/\u8865\u8D34\uFF1A' + fmtMoney(totalSubsidy) + '\n';
+  text += '\u5404\u7C7B\u6263\u6B3E\uFF1A' + fmtMoney(totalDeduction) + '\n';
+  text += '\u6700\u7EC8\u5E94\u53D1\u63D0\u6210\uFF1A' + fmtMoney(finalCommission) + '\n';
+
+  text += '\n==================================================\n';
+  text += '\u3010\u6309\u5458\u5DE5\u6C47\u603B\u3011\n';
+  Object.keys(staffSummary).sort().forEach(function(n) {
+    var s = staffSummary[n];
+    var shouldReceive = s.commission + (s.subsidy||0) - (s.deduction||0);
+    text += n + '\uFF1A\u5B9E\u6536' + fmtMoney(s.amount) + ' \uFF5C \u63D0\u6210' + fmtMoney(s.commission) + ' \uFF5C \u8865\u8D34' + fmtMoney(s.subsidy||0) + ' \uFF5C \u6263\u6B3E' + fmtMoney(s.deduction||0) + ' \uFF5C \u5E94\u53D1' + fmtMoney(shouldReceive) + '\n';
+  });
+
+  text += '\n==================================================\n';
+  text += '* \u6F58\u6F58\u7F8E\u7532\u7F8E\u776B \xB7 \u4E1A\u7EE9\u63D0\u6210\u5171\u4EAB\u5DE5\u4F5C\u53F0\u751F\u6210 *\n';
+
+  return text;
+}
+
+function showLedger() {
+  var records = window._reportRecords || [];
+  if (records.length === 0) { showToast('\u6682\u65E0\u6570\u636E'); return; }
+  var text = buildLedgerText(
+    records,
+    window._reportStaffSummary || {},
+    window._reportStart || '',
+    window._reportEnd || '',
+    window._reportTotalAmount || 0,
+    window._reportTotalCommission || 0,
+    window._reportTotalSubsidy || 0,
+    window._reportTotalDeduction || 0,
+    window._reportFinalCommission || 0
+  );
+  window._ledgerText = text;
+  showModal(
+    '<h3>\u{1F4CB} \u4E1A\u7EE9\u63D0\u6210\u53F0\u8D26</h3>' +
+    '<textarea class="ta-textarea" id="ledgerText" readonly>' + esc(text) + '</textarea>' +
+    '<div class="form-row mt-10">' +
+    '<button class="btn btn-blue" onclick="copyLedger()">\u{1F4CB} \u590D\u5236</button>' +
+    '<button class="btn btn-green" onclick="downloadLedger()">\u{1F4E5} \u4E0B\u8F7D</button>' +
+    '</div>' +
+    '<button class="btn btn-gray mt-10" onclick="closeModal()">\u5173\u95ED</button>'
+  );
+}
+
+function copyLedger() {
+  var textarea = document.getElementById('ledgerText');
+  if (textarea) {
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      showToast('\u2705 \u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F');
+    } catch(e) {
+      showToast('\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u4E2D\u590D\u5236');
+    }
+  }
+}
+
+function downloadLedger() {
+  var text = window._ledgerText || document.getElementById('ledgerText').value;
+  var start = window._reportStart || '';
+  var end = window._reportEnd || '';
+  var filterStaff = document.getElementById('reportStaff').value;
+  var fname = '\u4E1A\u7EE9\u53F0\u8D26_' + start;
+  if (start !== end) fname += '_' + end;
+  if (filterStaff) fname += '_' + filterStaff;
+  fname += '.txt';
+  downloadText(fname, text);
+}
+
+function exportDayLedger() {
+  var records = window._reportRecords || [];
+  if (records.length === 0) { showToast('\u6682\u65E0\u6570\u636E'); return; }
+  var text = buildLedgerText(
+    records,
+    window._reportStaffSummary || {},
+    window._reportStart || '',
+    window._reportEnd || '',
+    window._reportTotalAmount || 0,
+    window._reportTotalCommission || 0,
+    window._reportTotalSubsidy || 0,
+    window._reportTotalDeduction || 0,
+    window._reportFinalCommission || 0
+  );
+  var date = window._reportStart || todayStr();
+  downloadText('\u5355\u65E5\u5BF9\u8D26\u5355_' + date + '.txt', text);
+  showToast('\u2705 \u5DF2\u5BFC\u51FA\u5355\u65E5\u5BF9\u8D26\u5355');
+}
+
+function exportMonthLedger() {
+  var records = window._reportRecords || [];
+  if (records.length === 0) { showToast('\u6682\u65E0\u6570\u636E'); return; }
+  var text = buildLedgerText(
+    records,
+    window._reportStaffSummary || {},
+    window._reportStart || '',
+    window._reportEnd || '',
+    window._reportTotalAmount || 0,
+    window._reportTotalCommission || 0,
+    window._reportTotalSubsidy || 0,
+    window._reportTotalDeduction || 0,
+    window._reportFinalCommission || 0
+  );
+  var start = window._reportStart || '';
+  var end = window._reportEnd || '';
+  downloadText('\u6708\u5BF9\u8D26\u5355_' + start + '_' + end + '.txt', text);
+  showToast('\u2705 \u5DF2\u5BFC\u51FA\u6708\u5BF9\u8D26\u5355');
+}
+
+function exportStaffLedger() {
+  var filterStaff = document.getElementById('reportStaff').value;
+  if (!filterStaff) { showToast('\u8BF7\u5148\u9009\u62E9\u4E00\u4F4D\u5458\u5DE5'); return; }
+  var records = (window._reportRecords || []).filter(function(r) { return r.staffName === filterStaff; });
+  if (records.length === 0) { showToast('\u8BE5\u5458\u5DE5\u6682\u65E0\u8BB0\u5F55'); return; }
+  var staffSummary = {};
+  staffSummary[filterStaff] = window._reportStaffSummary[filterStaff] || { count:0, amount:0, commission:0, subsidy:0, deduction:0 };
+  var totalAmount = records.reduce(function(s,r) { return s + (parseFloat(r.amount)||0); }, 0);
+  var totalCommission = records.reduce(function(s,r) { return s + (parseFloat(r.commission)||0); }, 0);
+  var totalSubsidy = records.reduce(function(s,r) { return s + (parseFloat(r.subsidy)||0); }, 0);
+  var totalDeduction = records.reduce(function(s,r) { return s + (parseFloat(r.deduction)||0); }, 0);
+  var finalCommission = totalCommission + totalSubsidy - totalDeduction;
+  var text = buildLedgerText(records, staffSummary, window._reportStart||'', window._reportEnd||'', totalAmount, totalCommission, totalSubsidy, totalDeduction, finalCommission);
+  var fname = '\u5458\u5DE5\u5BF9\u8D26\u5355_' + filterStaff + '_' + (window._reportStart||'') + '_' + (window._reportEnd||'') + '.txt';
+  downloadText(fname, text);
+  showToast('\u2705 \u5DF2\u5BFC\u51FA' + filterStaff + '\u5BF9\u8D26\u5355');
+}
+
+function showImportModal() {
+  showModal(
+    '<h3>\u{1F4E5} \u5BFC\u5165\u4E1A\u7EE9</h3>' +
+    '<p style="font-size:13px;color:#999;margin-bottom:10px;">\u8D34\u5165\u5BFC\u51FA\u7684\u53F0\u8D26\u6587\u672C\uFF0C\u6216\u624B\u52A8\u7F16\u8F91\u540E\u5BFC\u5165\u3002\u6BCF\u884C\u683C\u5F0F\uFF1A\u65E5\u671F,\u5458\u5DE5,\u9879\u76EE,\u7C7B\u578B,\u5B9E\u6536,\u63D0\u6210</p>' +
+    '<p style="font-size:12px;color:#999;margin-bottom:8px;">\u793A\u4F8B\uFF1A2026-08-01,\u6DB5\u6DB5,\u7F8E\u7532,\u6563\u5BA2,90,45</p>' +
+    '<textarea class="ta-textarea" id="importTextarea" placeholder="2026-08-01,\u6DB5\u6DB5,\u7F8E\u7532,\u6563\u5BA2,90,45&#10;2026-08-01,\u6F47\u5E86,\u7F8E\u7532,\u6563\u5BA2,69.9,34.95"></textarea>' +
+    '<button class="btn btn-orange mt-10" onclick="doImportRecords()">\u2705 \u5BFC\u5165</button>' +
+    '<button class="btn btn-gray mt-10" onclick="closeModal()">\u53D6\u6D88</button>'
+  );
+}
+
+async function doImportRecords() {
+  var text = document.getElementById('importTextarea').value.trim();
+  if (!text) { showToast('\u8BF7\u7C98\u8D34\u6570\u636E'); return; }
+  var lines = text.split('\n');
+  var imported = 0;
+  var failed = 0;
+  var now = new Date();
+  var timeStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line || line.indexOf('\u6F58\u6F58') !== -1 || line.indexOf('\u5BFC\u51FA') !== -1 || line.indexOf('\u7EDF\u8BA1') !== -1 || line.indexOf('\u3010') !== -1 || line.indexOf('===') !== -1 || line.indexOf('---') !== -1 || line.indexOf('\u5E8F\u53F7') !== -1 || line.indexOf('\u603B') !== -1 || line.indexOf('*') === 0) continue;
+    var parts = line.split(',').map(function(s) { return s.trim(); });
+    if (line.indexOf('|') !== -1) {
+      parts = line.split('|').map(function(s) { return s.trim(); });
+    }
+    if (parts.length < 5) { failed++; continue; }
+
+    var dateStr, staffName, projectName, type, amount, commission;
+    if (parts.length >= 6 && parts[0].match(/^\d{4}/)) {
+      dateStr = parts[0]; staffName = parts[1]; projectName = parts[2]; type = parts[3]; amount = parseFloat(parts[4]) || 0; commission = parseFloat(parts[5]) || 0;
+    } else if (parts.length >= 5 && parts[0].match(/^\d{4}/)) {
+      dateStr = parts[0]; staffName = parts[1]; projectName = parts[2]; type = parts[3]; amount = parseFloat(parts[4]) || 0; commission = 0;
+    } else {
+      failed++; continue;
+    }
+
+    if (!dateStr || !staffName || !projectName || amount <= 0) { failed++; continue; }
+    if (appData.staff.indexOf(staffName) === -1 && !appData.staff.find(function(s) { return s.name === staffName; })) {
+      appData.staff.push({ id: genId(), name: staffName, password: '123456', commissionRates: { '\u6563\u5BA2':null, '\u56E2\u8D2D':null, '\u4F1A\u5458\u5361':null } });
+    }
+    if (!appData.projects.find(function(p) { return p.name === projectName; })) {
+      appData.projects.push({ id: genId(), name: projectName, category: '\u5176\u4ED6', price: amount, commissionRate: null });
+    }
+    if (['\u6563\u5BA2','\u56E2\u8D2D','\u4F1A\u5458\u5361'].indexOf(type) === -1) type = '\u6563\u5BA2';
+
+    appData.records.push({
+      id: genId(), staffName: staffName, projectName: projectName, type: type,
+      amount: amount, commission: commission, note: '',
+      date: dateStr, time: timeStr, createdBy: 'import',
+      memberId: null, memberName: null, subsidy: 0, deduction: 0
+    });
+    imported++;
+  }
+
+  if (imported > 0) {
+    if (await saveData()) {
+      showToast('\u2705 \u5BFC\u5165' + imported + '\u6761' + (failed > 0 ? '\uFF0C\u5931\u8D25' + failed + '\u6761' : ''));
+      closeModal();
+      loadReport();
+    }
+  } else {
+    showToast('\u672A\u5BFC\u5165\u4EFB\u4F55\u6570\u636E\uFF0C\u8BF7\u68C0\u67E5\u683C\u5F0F');
+  }
 }
 
 function downloadText(filename, text) {
