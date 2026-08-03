@@ -1,37 +1,20 @@
-// 潘潘美甲美睫工作台 Service Worker
-const CACHE_NAME = 'panpan-v1';
-const CACHE_FILES = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-];
+// 潘潘美甲美睫工作台 Service Worker - 已禁用缓存
+const CACHE_NAME = 'panpan-v3-disabled';
+const CACHE_FILES = [];
 
 self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(CACHE_FILES)).catch(() => {})
-  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys => Promise.all(
-      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      keys.map(k => caches.delete(k))
     ))
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', e => {
-  // 仅缓存GET请求
-  if (e.request.method !== 'GET') return;
-  e.respondWith(
-    fetch(e.request).then(response => {
-      const clone = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone)).catch(() => {});
-      return response;
-    }).catch(() => {
-      return caches.match(e.request).then(resp => resp || caches.match('/'));
-    })
-  );
+  return;
 });
