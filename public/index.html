@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="潘潘工作台">
 <link rel="manifest" href="/manifest.json">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💅%3C/text%3E%3C/svg%3E">
 <title>潘潘美甲美睫工作台</title>
 <style>
@@ -936,7 +939,13 @@ function downloadText(filename, text) {
   showToast('✅ 已导出: ' + filename);
 }
 
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(() => {}); }
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    for (var registration of registrations) {
+      registration.unregister();
+    }
+  }).catch(function(){});
+}
 document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 </script>
 </body>
