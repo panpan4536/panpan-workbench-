@@ -305,17 +305,12 @@ function getCommissionRate(staffName, projectName, type) {
   const staff = appData.staff.find(s => s.name === staffName);
   const project = appData.projects.find(p => p.name === projectName);
   const defaultRate = appData.rules[type] || 0;
-
   let rate = defaultRate;
   let source = '默认比例';
-
-  // 项目独立提成比例
   if (project && project.commissionRate !== null && project.commissionRate !== undefined) {
     rate = project.commissionRate;
     source = '项目比例';
   }
-
-  // 员工独立比例覆盖
   if (staff && staff.commissionRates) {
     const staffRate = staff.commissionRates[type];
     if (staffRate !== null && staffRate !== undefined) {
@@ -323,7 +318,6 @@ function getCommissionRate(staffName, projectName, type) {
       source = '员工比例';
     }
   }
-
   return { rate, source };
 }
 
@@ -333,7 +327,6 @@ function calcCommission() {
   const type = document.getElementById('recType').value;
   const amount = parseFloat(document.getElementById('recAmount').value) || 0;
   const manualRate = document.getElementById('recRate').value;
-
   let rate, source;
   if (manualRate !== '') {
     rate = parseFloat(manualRate) || 0;
@@ -343,12 +336,10 @@ function calcCommission() {
     rate = result.rate;
     source = result.source;
   }
-
   const commission = (amount * rate / 100).toFixed(2);
   document.getElementById('recCommission').value = commission;
-
   const info = document.getElementById('rateInfo');
-  info.innerHTML = `提成来源: <span class="text-pink">${source}</span> | 比例: <span class="text-pink">${rate}%</span>`;
+  info.innerHTML = '提成来源: <span class="text-pink">' + source + '</span> | 比例: <span class="text-pink">' + rate + '%</span>';
 }
 
 // ============ 数据加载 ============
@@ -416,7 +407,6 @@ async function enterApp() {
   document.getElementById('mainApp').classList.remove('hidden');
   document.getElementById('tabBar').classList.remove('hidden');
   await loadData();
-  // 根据角色显示/隐藏 tab
   updateTabVisibility();
   renderHome();
   navTo('home');
@@ -424,17 +414,14 @@ async function enterApp() {
 
 function updateTabVisibility() {
   const tabs = document.querySelectorAll('.tab');
-  // tab顺序: 0首页 1录业绩 2预约 3对账 4项目 5管理
   if (currentRole === 'staff') {
-    // 员工只能看: 首页、录业绩、对账
-    tabs[0].style.display = ''; // 首页
-    tabs[1].style.display = ''; // 录业绩
-    tabs[2].style.display = 'none'; // 预约
-    tabs[3].style.display = ''; // 对账
-    tabs[4].style.display = 'none'; // 项目
-    tabs[5].style.display = 'none'; // 管理
+    tabs[0].style.display = '';
+    tabs[1].style.display = '';
+    tabs[2].style.display = '';
+    tabs[3].style.display = '';
+    tabs[4].style.display = 'none';
+    tabs[5].style.display = 'none';
   } else {
-    // 老板全部可见
     tabs.forEach(t => t.style.display = '');
   }
 }
@@ -453,9 +440,8 @@ function logout() {
 
 // ============ 导航 ============
 function navTo(page) {
-  // 员工权限限制：只能访问 home/record/report
   if (currentRole === 'staff') {
-    const allowed = ['home', 'record', 'report'];
+    const allowed = ['home', 'record', 'report', 'appointment'];
     if (!allowed.includes(page)) {
       showToast('员工无权访问此页面');
       return;
@@ -469,7 +455,6 @@ function navTo(page) {
   const tabs = document.querySelectorAll('.tab');
   const tabMap = { home:0, record:1, appointment:2, report:3, project:4, staff:5 };
   if (tabs[tabMap[page]]) tabs[tabMap[page]].classList.add('active');
-
   if (page === 'home') renderHome();
   else if (page === 'record') renderRecord();
   else if (page === 'appointment') renderAppointment();
@@ -495,11 +480,9 @@ function renderHome() {
   document.getElementById('statMembers').textContent = appData.members.length;
   document.getElementById('statBalance').textContent = totalBalance.toFixed(0);
 
-  // 员工端隐藏不需要的统计和快捷操作
   const quickActions = document.getElementById('quickActions');
   if (currentRole === 'staff') {
     if (quickActions) quickActions.style.display = 'none';
-    // 员工只看自己的数据
     const myTodayRecs = todayRecs.filter(r => r.staffName === currentStaff.name);
     const myMonthRecs = monthRecs.filter(r => r.staffName === currentStaff.name);
     document.getElementById('statToday').textContent = myTodayRecs.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
@@ -513,13 +496,32 @@ function renderHome() {
   if (todayRecs.length === 0) {
     list.innerHTML = '<div class="empty">今日暂无记录</div>';
   } else {
-    list.innerHTML = todayRecs.map(r => `
-      <div class="list-item">
-        <div class="info">
-          <div class="name">${r.staffName} · ${r.projectName}</div>
-          <div class="detail">${r.type} | ¥${r.amount} | 提成¥${r.commission}${r.memberName ? ' | 会员:'+r.memberName : ''} | ${r.note||''}</div>
-        </div>
-      </div>`).join('');
+    list.innerHTML = todayRecs.map(r => '\n      <div class="list-item">\n        <div class="info">\n          <div class="name">' + r.staffName + ' · ' + r.projectName + ' <span style="color:#999;font-size:12px;">' + (r.time||'') + '</span></div>\n          <div class="detail">' + r.type + ' | ¥' + r.amount + ' | 提成¥' + r.commission + (r.memberName ? ' | 会员:'+r.memberName : '') + ' | ' + (r.note||'') + '</div>\n        </div>\n      </div>').join('');
+  }
+
+  // 员工端：显示自己的预约
+  const todayCard = document.getElementById('todayRecordsCard');
+  if (currentRole === 'staff') {
+    const myAppts = appData.appointments.filter(a => a.staffName === currentStaff.name);
+    const todayAppts = myAppts.filter(a => a.date === today);
+    let apptHtml = '';
+    if (todayAppts.length === 0) {
+      apptHtml = '<div class="empty">今日暂无您的预约</div>';
+    } else {
+      apptHtml = todayAppts.sort((a,b) => a.time.localeCompare(b.time)).map(a => '\n        <div class="list-item">\n          <div class="info">\n            <div class="name">📅 ' + a.time + ' · ' + a.customerName + '</div>\n            <div class="detail">' + a.projectName + ' | ' + (a.phone||'') + (a.note ? ' | '+a.note : '') + '</div>\n          </div>\n        </div>').join('');
+    }
+    let apptCard = document.getElementById('staffApptCard');
+    if (!apptCard) {
+      apptCard = document.createElement('div');
+      apptCard.id = 'staffApptCard';
+      apptCard.className = 'card';
+      apptCard.innerHTML = '<h2>📅 今日预约</h2><div id="staffApptList"></div>';
+      todayCard.parentNode.insertBefore(apptCard, todayCard.nextSibling);
+    }
+    document.getElementById('staffApptList').innerHTML = apptHtml;
+  } else {
+    const apptCard = document.getElementById('staffApptCard');
+    if (apptCard) apptCard.remove();
   }
 }
 
@@ -529,14 +531,14 @@ function renderRecord() {
   const projSel = document.getElementById('recProject');
 
   if (currentRole === 'staff' && currentStaff) {
-    staffSel.innerHTML = `<option value="${currentStaff.name}">${currentStaff.name}</option>`;
+    staffSel.innerHTML = '<option value="' + currentStaff.name + '">' + currentStaff.name + '</option>';
     staffSel.disabled = true;
   } else {
-    staffSel.innerHTML = appData.staff.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+    staffSel.innerHTML = appData.staff.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
     staffSel.disabled = false;
   }
 
-  projSel.innerHTML = appData.projects.map(p => `<option value="${p.name}" data-price="${p.price||0}">${p.name} ¥${p.price||0}</option>`).join('');
+  projSel.innerHTML = appData.projects.map(p => '<option value="' + p.name + '" data-price="' + (p.price||0) + '">' + p.name + ' ¥' + (p.price||0) + '</option>').join('');
   document.getElementById('recRate').value = '';
   document.getElementById('recAmount').value = '';
   document.getElementById('recCommission').value = '';
@@ -566,7 +568,7 @@ function onTypeChange() {
     memberBox.classList.remove('hidden');
     const memberSel = document.getElementById('recMember');
     memberSel.innerHTML = '<option value="">请选择会员</option>' + appData.members.map(m =>
-      `<option value="${m.id}" data-balance="${m.balance||0}">${m.name} ${m.phone||''} (余额¥${m.balance||0})</option>`
+      '<option value="' + m.id + '" data-balance="' + (m.balance||0) + '">' + m.name + ' ' + (m.phone||'') + ' (余额¥' + (m.balance||0) + ')</option>'
     ).join('');
     document.getElementById('memberBalanceInfo').textContent = '';
   } else {
@@ -602,7 +604,6 @@ async function submitRecord() {
     return;
   }
 
-  // 会员卡扣款
   if (type === '会员卡' && member) {
     if (member.balance < amount) {
       showToast('会员余额不足（余额¥'+member.balance+'）');
@@ -630,38 +631,20 @@ async function submitRecord() {
 // ============ 预约 ============
 function renderAppointment() {
   const list = document.getElementById('apptList');
-  if (appData.appointments.length === 0) {
+  let appointments = appData.appointments;
+  if (currentRole === 'staff') {
+    appointments = appointments.filter(a => a.staffName === currentStaff.name);
+  }
+  if (appointments.length === 0) {
     list.innerHTML = '<div class="empty">暂无预约</div>';
     return;
   }
-  const sorted = [...appData.appointments].sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
-  list.innerHTML = sorted.map(a => `
-    <div class="list-item">
-      <div class="info">
-        <div class="name">${a.customerName} · ${a.projectName}</div>
-        <div class="detail">${a.date} ${a.time} | ${a.staffName||'未指定'} | ${a.phone||''} ${a.note ? '| '+a.note : ''}</div>
-      </div>
-      <div class="actions">
-        <button class="btn btn-sm btn-red" onclick="delAppt('${a.id}')">删</button>
-      </div>
-    </div>`).join('');
-}
-
-function showApptModal() {
-  const staffOpts = appData.staff.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
-  const projOpts = appData.projects.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
-  showModal(`
-    <h3>📅 新建预约</h3>
-    <label>客户姓名</label><input type="text" id="apptName" placeholder="客户姓名">
-    <label>联系电话</label><input type="tel" id="apptPhone" placeholder="手机号(可选)">
-    <label>预约日期</label><input type="date" id="apptDate">
-    <label>预约时间</label><input type="time" id="apptTime">
-    <label>选择项目</label><select id="apptProject">${projOpts}</select>
-    <label>指定员工</label><select id="apptStaff"><option value="">不指定</option>${staffOpts}</select>
-    <label>备注</label><input type="text" id="apptNote" placeholder="备注(可选)">
-    <button class="btn btn-blue mt-10" onclick="addAppt()">✅ 确认预约</button>
-    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
-  `);
+  const sorted = [...appointments].sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
+  list.innerHTML = sorted.map(a => '\n    <div class="list-item">\n      <div class="info">\n        <div class="name">' + a.date + ' ' + a.time + ' · ' + a.customerName + ' · ' + a.projectName + '</div>\n        <div class="detail">' + (a.staffName||'未指定员工') + ' | ' + (a.phone||'') + (a.note ? ' | '+a.note : '') + '</div>\n      </div>\n      ' + (currentRole === 'boss' ? '<div class="actions"><button class="btn btn-sm btn-red" onclick="delAppt(\'' + a.id + '\')">删</button></div>' : '') + '\n    </div>').join('');
+}function showApptModal() {
+  const staffOpts = appData.staff.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
+  const projOpts = appData.projects.map(p => '<option value="' + p.name + '">' + p.name + '</option>').join('');
+  showModal('\n    <h3>📅 新建预约</h3>\n    <label>客户姓名</label><input type="text" id="apptName" placeholder="客户姓名">\n    <label>联系电话</label><input type="tel" id="apptPhone" placeholder="手机号(可选)">\n    <label>预约日期</label><input type="date" id="apptDate">\n    <label>预约时间</label><input type="time" id="apptTime">\n    <label>选择项目</label><select id="apptProject">' + projOpts + '</select>\n    <label>指定员工</label><select id="apptStaff"><option value="">不指定</option>' + staffOpts + '</select>\n    <label>备注</label><input type="text" id="apptNote" placeholder="备注(可选)">\n    <button class="btn btn-blue mt-10" onclick="addAppt()">✅ 确认预约</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
 }
 
 async function addAppt() {
@@ -672,17 +655,14 @@ async function addAppt() {
   const projectName = document.getElementById('apptProject').value;
   const staffName = document.getElementById('apptStaff').value;
   const note = document.getElementById('apptNote').value.trim();
-
   if (!customerName || !date || !time || !projectName) {
     showToast('请填写完整');
     return;
   }
-
   appData.appointments.push({
     id: genId(),
     customerName, phone, date, time, projectName, staffName, note
   });
-
   if (await saveData()) {
     showToast('✅ 预约成功');
     closeModal();
@@ -707,45 +687,22 @@ function renderStaff() {
     list.innerHTML = appData.staff.map(s => {
       const recs = appData.records.filter(r => r.staffName === s.name);
       const total = recs.reduce((sum,r) => sum + (parseFloat(r.commission)||0), 0);
-      // 检查是否有自定义比例
       let hasCustom = false;
       if (s.commissionRates) {
         ['散客','团购','会员卡'].forEach(t => {
           if (s.commissionRates[t] !== null && s.commissionRates[t] !== undefined) hasCustom = true;
         });
       }
-      return `
-      <div class="list-item">
-        <div class="info">
-          <div class="name">${s.name} ${hasCustom ? '<span class="tag tag-custom">自定义比例</span>' : '<span class="tag tag-default">默认比例</span>'}</div>
-          <div class="detail">${recs.length}笔记录 | 总提成¥${total.toFixed(2)}</div>
-        </div>
-        <div class="actions">
-          <button class="btn btn-sm btn-orange" onclick="showStaffRateModal('${s.id}')">提成</button>
-          <button class="btn btn-sm btn-red" onclick="delStaff('${s.id}')">删</button>
-        </div>
-      </div>`;
+      return '\n      <div class="list-item">\n        <div class="info">\n          <div class="name">' + s.name + ' ' + (hasCustom ? '<span class="tag tag-custom">自定义比例</span>' : '<span class="tag tag-default">默认比例</span>') + '</div>\n          <div class="detail">' + recs.length + '笔记录 | 总提成¥' + total.toFixed(2) + '</div>\n        </div>\n        <div class="actions">\n          <button class="btn btn-sm btn-orange" onclick="showStaffRateModal(\'' + s.id + '\')">提成</button>\n          <button class="btn btn-sm btn-red" onclick="delStaff(\'' + s.id + '\')">删</button>\n        </div>\n      </div>';
     }).join('');
   }
-
   const rulesList = document.getElementById('rulesList');
-  rulesList.innerHTML = Object.entries(appData.rules).map(([type, rate]) => `
-    <div class="list-item">
-      <div class="info"><div class="name">${type}</div></div>
-      <div class="text-pink" style="font-size:18px;font-weight:bold">${rate}%</div>
-    </div>`).join('');
-
+  rulesList.innerHTML = Object.entries(appData.rules).map(([type, rate]) => '\n    <div class="list-item">\n      <div class="info"><div class="name">' + type + '</div></div>\n      <div class="text-pink" style="font-size:18px;font-weight:bold">' + rate + '%</div>\n    </div>').join('');
   renderMembers();
 }
 
 function showStaffModal() {
-  showModal(`
-    <h3>👥 添加员工</h3>
-    <label>员工姓名</label><input type="text" id="newStaffName" placeholder="姓名">
-    <label>登录密码</label><input type="text" id="newStaffPwd" placeholder="密码">
-    <button class="btn mt-10" onclick="addStaff()">✅ 添加</button>
-    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
-  `);
+  showModal('\n    <h3>👥 添加员工</h3>\n    <label>员工姓名</label><input type="text" id="newStaffName" placeholder="姓名">\n    <label>登录密码</label><input type="text" id="newStaffPwd" placeholder="密码">\n    <button class="btn mt-10" onclick="addStaff()">✅ 添加</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
 }
 
 async function addStaff() {
@@ -776,41 +733,25 @@ function showStaffRateModal(staffId) {
   const staff = appData.staff.find(s => s.id === staffId);
   if (!staff) return;
   if (!staff.commissionRates) staff.commissionRates = { '散客':null, '团购':null, '会员卡':null };
-
   const types = ['散客', '团购', '会员卡'];
   const inputs = types.map(t => {
     const val = staff.commissionRates[t];
     const defaultVal = appData.rules[t] || 0;
-    return `
-      <label>${t} 提成比例 (%) <span style="color:#999;font-size:12px">（留空=用默认${defaultVal}%）</span></label>
-      <input type="number" id="staffRate_${t}" value="${val !== null && val !== undefined ? val : ''}" placeholder="默认${defaultVal}%">
-    `;
+    return '\n      <label>' + t + ' 提成比例 (%) <span style="color:#999;font-size:12px">（留空=用默认' + defaultVal + '%）</span></label>\n      <input type="number" id="staffRate_' + t + '" value="' + (val !== null && val !== undefined ? val : '') + '" placeholder="默认' + defaultVal + '%">\n    ';
   }).join('');
-
-  showModal(`
-    <h3>💰 ${staff.name} 的提成设置</h3>
-    <p style="font-size:13px;color:#999;margin-bottom:12px;">留空表示使用默认比例，填写数字表示该员工使用独立比例</p>
-    ${inputs}
-    <button class="btn btn-orange mt-10" onclick="saveStaffRates('${staffId}')">✅ 保存</button>
-    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
-  `);
+  showModal('\n    <h3>💰 ' + staff.name + ' 的提成设置</h3>\n    <p style="font-size:13px;color:#999;margin-bottom:12px;">留空表示使用默认比例，填写数字表示该员工使用独立比例</p>\n    ' + inputs + '\n    <button class="btn btn-orange mt-10" onclick="saveStaffRates(\'' + staffId + '\')">✅ 保存</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
 }
 
 async function saveStaffRates(staffId) {
   const staff = appData.staff.find(s => s.id === staffId);
   if (!staff) return;
   if (!staff.commissionRates) staff.commissionRates = { '散客':null, '团购':null, '会员卡':null };
-
   ['散客', '团购', '会员卡'].forEach(t => {
     const el = document.getElementById('staffRate_' + t);
     const val = el.value.trim();
-    if (val === '') {
-      staff.commissionRates[t] = null;
-    } else {
-      staff.commissionRates[t] = parseFloat(val) || 0;
-    }
+    if (val === '') { staff.commissionRates[t] = null; }
+    else { staff.commissionRates[t] = parseFloat(val) || 0; }
   });
-
   if (await saveData()) {
     showToast('✅ 提成设置已保存');
     closeModal();
@@ -818,18 +759,11 @@ async function saveStaffRates(staffId) {
   }
 }
 
-// ============ 默认提成方案 ============
 function showRulesModal() {
   const inputs = Object.entries(appData.rules).map(([type, rate]) =>
-    `<label>${type} 默认提成比例 (%)</label><input type="number" id="rule_${type}" value="${rate}" placeholder="0">`
+    '<label>' + type + ' 默认提成比例 (%)</label><input type="number" id="rule_' + type + '" value="' + rate + '" placeholder="0">'
   ).join('');
-  showModal(`
-    <h3>💰 修改默认提成方案</h3>
-    <p style="font-size:13px;color:#999;margin-bottom:12px;">这是所有员工和项目的默认比例，员工有独立比例的会覆盖此默认值</p>
-    ${inputs}
-    <button class="btn btn-orange mt-10" onclick="saveRules()">✅ 保存</button>
-    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
-  `);
+  showModal('\n    <h3>💰 修改默认提成方案</h3>\n    <p style="font-size:13px;color:#999;margin-bottom:12px;">这是所有员工和项目的默认比例，员工有独立比例的会覆盖此默认值</p>\n    ' + inputs + '\n    <button class="btn btn-orange mt-10" onclick="saveRules()">✅ 保存</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
 }
 
 async function saveRules() {
@@ -852,32 +786,15 @@ function renderProject() {
   } else {
     list.innerHTML = appData.projects.map(p => {
       const rateTag = (p.commissionRate !== null && p.commissionRate !== undefined)
-        ? `<span class="tag tag-custom">${p.commissionRate}%</span>`
-        : `<span class="tag tag-default">默认</span>`;
-      return `
-      <div class="list-item">
-        <div class="info">
-          <div class="name">${p.name} ${rateTag}</div>
-          <div class="detail">价格 ¥${p.price||0} ${p.commissionRate !== null && p.commissionRate !== undefined ? '| 独立提成'+p.commissionRate+'%' : ''}</div>
-        </div>
-        <div class="actions">
-          <button class="btn btn-sm btn-blue" onclick="showEditProjectModal('${p.id}')">编辑</button>
-          <button class="btn btn-sm btn-red" onclick="delProject('${p.id}')">删</button>
-        </div>
-      </div>`;
+        ? '<span class="tag tag-custom">' + p.commissionRate + '%</span>'
+        : '<span class="tag tag-default">默认</span>';
+      return '\n      <div class="list-item">\n        <div class="info">\n          <div class="name">' + p.name + ' ' + rateTag + '</div>\n          <div class="detail">价格 ¥' + (p.price||0) + ' ' + (p.commissionRate !== null && p.commissionRate !== undefined ? '| 独立提成'+p.commissionRate+'%' : '') + '</div>\n        </div>\n        <div class="actions">\n          <button class="btn btn-sm btn-blue" onclick="showEditProjectModal(\'' + p.id + '\')">编辑</button>\n          <button class="btn btn-sm btn-red" onclick="delProject(\'' + p.id + '\')">删</button>\n        </div>\n      </div>';
     }).join('');
   }
 }
 
 function showProjectModal() {
-  showModal(`
-    <h3>💅 添加项目</h3>
-    <label>项目名称</label><input type="text" id="newProjName" placeholder="如: 美甲基础款">
-    <label>默认价格(元)</label><input type="number" id="newProjPrice" placeholder="0">
-    <label>独立提成比例(%) <span style="color:#999;font-size:12px">（留空=用默认比例）</span></label><input type="number" id="newProjRate" placeholder="留空=默认">
-    <button class="btn btn-purple mt-10" onclick="addProject()">✅ 添加</button>
-    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
-  `);
+  showModal('\n    <h3>💅 添加项目</h3>\n    <label>项目名称</label><input type="text" id="newProjName" placeholder="如: 美甲基础款">\n    <label>默认价格(元)</label><input type="number" id="newProjPrice" placeholder="0">\n    <label>独立提成比例(%) <span style="color:#999;font-size:12px">（留空=用默认比例）</span></label><input type="number" id="newProjRate" placeholder="留空=默认">\n    <button class="btn btn-purple mt-10" onclick="addProject()">✅ 添加</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
 }
 
 async function addProject() {
@@ -899,14 +816,7 @@ function showEditProjectModal(projId) {
   const p = appData.projects.find(p => p.id === projId);
   if (!p) return;
   const rateVal = (p.commissionRate !== null && p.commissionRate !== undefined) ? p.commissionRate : '';
-  showModal(`
-    <h3>💅 编辑项目</h3>
-    <label>项目名称</label><input type="text" id="editProjName" value="${p.name}">
-    <label>默认价格(元)</label><input type="number" id="editProjPrice" value="${p.price||0}">
-    <label>独立提成比例(%) <span style="color:#999;font-size:12px">（留空=用默认比例）</span></label><input type="number" id="editProjRate" value="${rateVal}" placeholder="留空=默认">
-    <button class="btn btn-blue mt-10" onclick="saveEditProject('${p.id}')">✅ 保存修改</button>
-    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
-  `);
+  showModal('\n    <h3>💅 编辑项目</h3>\n    <label>项目名称</label><input type="text" id="editProjName" value="' + p.name + '">\n    <label>默认价格(元)</label><input type="number" id="editProjPrice" value="' + (p.price||0) + '">\n    <label>独立提成比例(%) <span style="color:#999;font-size:12px">（留空=用默认比例）</span></label><input type="number" id="editProjRate" value="' + rateVal + '" placeholder="留空=默认">\n    <button class="btn btn-blue mt-10" onclick="saveEditProject(\'' + p.id + '\')">✅ 保存修改</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
 }
 
 async function saveEditProject(projId) {
@@ -948,31 +858,12 @@ function renderMembers() {
   list.innerHTML = appData.members.map(m => {
     const balance = parseFloat(m.balance) || 0;
     const balanceClass = balance > 0 ? 'text-green' : 'text-red';
-    return `
-    <div class="list-item">
-      <div class="info">
-        <div class="name">${m.name} <span class="tag tag-green">余额¥${balance.toFixed(2)}</span></div>
-        <div class="detail">${m.phone||'无电话'} | 卡号:${m.cardNo||'无'} | 充值${(m.rechargeHistory||[]).length}次</div>
-      </div>
-      <div class="actions">
-        <button class="btn btn-sm btn-green" onclick="showRechargeModal('${m.id}')">充值</button>
-        <button class="btn btn-sm btn-blue" onclick="showEditMemberModal('${m.id}')">编辑</button>
-        <button class="btn btn-sm btn-red" onclick="delMember('${m.id}')">删</button>
-      </div>
-    </div>`;
+    return '\n    <div class="list-item">\n      <div class="info">\n        <div class="name">' + m.name + ' <span class="tag tag-green">余额¥' + balance.toFixed(2) + '</span></div>\n        <div class="detail">' + (m.phone||'无电话') + ' | 卡号:' + (m.cardNo||'无') + ' | 充值' + ((m.rechargeHistory||[]).length) + '次</div>\n      </div>\n      <div class="actions">\n        <button class="btn btn-sm btn-green" onclick="showRechargeModal(\'' + m.id + '\')">充值</button>\n        <button class="btn btn-sm btn-blue" onclick="showEditMemberModal(\'' + m.id + '\')">编辑</button>\n        <button class="btn btn-sm btn-red" onclick="delMember(\'' + m.id + '\')">删</button>\n      </div>\n    </div>';
   }).join('');
 }
 
 function showMemberModal() {
-  showModal(`
-    <h3>👤 添加会员</h3>
-    <label>会员姓名</label><input type="text" id="newMemName" placeholder="姓名">
-    <label>手机号</label><input type="tel" id="newMemPhone" placeholder="手机号(可选)">
-    <label>卡号</label><input type="text" id="newMemCardNo" placeholder="卡号(可选)">
-    <label>初始余额(元)</label><input type="number" id="newMemBalance" value="0" placeholder="0">
-    <button class="btn btn-purple mt-10" onclick="addMember()">✅ 添加</button>
-    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
-  `);
+  showModal('\n    <h3>👤 添加会员</h3>\n    <label>会员姓名</label><input type="text" id="newMemName" placeholder="姓名">\n    <label>手机号</label><input type="tel" id="newMemPhone" placeholder="手机号(可选)">\n    <label>卡号</label><input type="text" id="newMemCardNo" placeholder="卡号(可选)">\n    <label>初始余额(元)</label><input type="number" id="newMemBalance" value="0" placeholder="0">\n    <button class="btn btn-purple mt-10" onclick="addMember()">✅ 添加</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
 }
 
 async function addMember() {
@@ -996,15 +887,7 @@ async function addMember() {
 function showEditMemberModal(memberId) {
   const m = appData.members.find(m => m.id === memberId);
   if (!m) return;
-  showModal(`
-    <h3>👤 编辑会员</h3>
-    <label>会员姓名</label><input type="text" id="editMemName" value="${m.name}">
-    <label>手机号</label><input type="tel" id="editMemPhone" value="${m.phone||''}">
-    <label>卡号</label><input type="text" id="editMemCardNo" value="${m.cardNo||''}">
-    <label>当前余额(元)</label><input type="number" id="editMemBalance" value="${m.balance||0}" readonly>
-    <button class="btn btn-blue mt-10" onclick="saveEditMember('${m.id}')">✅ 保存修改</button>
-    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
-  `);
+  showModal('\n    <h3>👤 编辑会员</h3>\n    <label>会员姓名</label><input type="text" id="editMemName" value="' + m.name + '">\n    <label>手机号</label><input type="tel" id="editMemPhone" value="' + (m.phone||'') + '">\n    <label>卡号</label><input type="text" id="editMemCardNo" value="' + (m.cardNo||'') + '">\n    <label>当前余额(元)</label><input type="number" id="editMemBalance" value="' + (m.balance||0) + '" readonly>\n    <button class="btn btn-blue mt-10" onclick="saveEditMember(\'' + m.id + '\')">✅ 保存修改</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
 }
 
 async function saveEditMember(memberId) {
@@ -1028,19 +911,11 @@ function showRechargeModal(memberId) {
   if (m.rechargeHistory && m.rechargeHistory.length > 0) {
     rechargeHtml = '<div class="section-title">充值记录</div><table><tr><th>日期</th><th>金额</th><th>备注</th></tr>';
     m.rechargeHistory.slice().reverse().forEach(r => {
-      rechargeHtml += `<tr><td>${fmtDate(r.date)}</td><td>¥${r.amount}</td><td>${r.note||''}</td></tr>`;
+      rechargeHtml += '<tr><td>' + fmtDate(r.date) + '</td><td>¥' + r.amount + '</td><td>' + (r.note||'') + '</td></tr>';
     });
     rechargeHtml += '</table>';
   }
-  showModal(`
-    <h3>💰 会员充值 - ${m.name}</h3>
-    <p style="font-size:14px;color:#666;margin-bottom:8px;">当前余额: <span class="text-green" style="font-size:18px;font-weight:bold">¥${m.balance||0}</span></p>
-    <label>充值金额(元)</label><input type="number" id="rechargeAmount" placeholder="0">
-    <label>备注(可选)</label><input type="text" id="rechargeNote" placeholder="如: 微信充值">
-    <button class="btn btn-green mt-10" onclick="doRecharge('${m.id}')">✅ 确认充值</button>
-    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>
-    ${rechargeHtml}
-  `);
+  showModal('\n    <h3>💰 会员充值 - ' + m.name + '</h3>\n    <p style="font-size:14px;color:#666;margin-bottom:8px;">当前余额: <span class="text-green" style="font-size:18px;font-weight:bold">¥' + (m.balance||0) + '</span></p>\n    <label>充值金额(元)</label><input type="number" id="rechargeAmount" placeholder="0">\n    <label>备注(可选)</label><input type="text" id="rechargeNote" placeholder="如: 微信充值">\n    <button class="btn btn-green mt-10" onclick="doRecharge(\'' + m.id + '\')">✅ 确认充值</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n    ' + rechargeHtml + '\n  ');
 }
 
 async function doRecharge(memberId) {
@@ -1084,7 +959,6 @@ function renderReport() {
 async function loadReport() {
   const start = document.getElementById('reportStart').value;
   const end = document.getElementById('reportEnd').value;
-
   let records;
   if (currentRole === 'boss') {
     const res = await API.exportReport({ bossPassword: savedBossPwd || '0911', startDate: start, endDate: end });
@@ -1092,11 +966,8 @@ async function loadReport() {
   } else {
     records = appData.records.filter(r => r.staffName === currentStaff.name && (!r.date || (r.date >= start && r.date <= end)));
   }
-
   const totalAmount = records.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
   const totalCommission = records.reduce((s,r) => s + (parseFloat(r.commission)||0), 0);
-
-  // 会员充值统计
   let totalRecharge = 0;
   let rechargeRecords = [];
   appData.members.forEach(m => {
@@ -1107,11 +978,8 @@ async function loadReport() {
       }
     });
   });
-
-  // 会员消费统计
   const memberRecords = records.filter(r => r.type === '会员卡' && r.memberName);
   const memberConsume = memberRecords.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
-
   let staffSummary = {};
   records.forEach(r => {
     if (!staffSummary[r.staffName]) staffSummary[r.staffName] = { count:0, amount:0, commission:0 };
@@ -1119,41 +987,7 @@ async function loadReport() {
     staffSummary[r.staffName].amount += parseFloat(r.amount)||0;
     staffSummary[r.staffName].commission += parseFloat(r.commission)||0;
   });
-
-  let result = `
-    <div class="stat-grid">
-      <div class="stat-box"><div class="num">${records.length}</div><div class="label">总笔数</div></div>
-      <div class="stat-box green"><div class="num">${totalAmount.toFixed(0)}</div><div class="label">总金额(元)</div></div>
-      <div class="stat-box orange"><div class="num">${totalCommission.toFixed(0)}</div><div class="label">总提成(元)</div></div>
-    </div>
-    <div class="stat-grid">
-      <div class="stat-box purple"><div class="num">${totalRecharge.toFixed(0)}</div><div class="label">会员充值(元)</div></div>
-      <div class="stat-box blue"><div class="num">${memberConsume.toFixed(0)}</div><div class="label">会员消费(元)</div></div>
-    </div>
-    <div class="section-title">按员工汇总</div>
-    <table>
-      <tr><th>员工</th><th>笔数</th><th>金额</th><th>提成</th></tr>
-      ${Object.entries(staffSummary).map(([name, s]) => `
-        <tr><td>${name}</td><td>${s.count}</td><td>¥${s.amount.toFixed(0)}</td><td>¥${s.commission.toFixed(2)}</td></tr>
-      `).join('')}
-    </table>
-    ${rechargeRecords.length > 0 ? `
-    <div class="section-title">会员充值记录</div>
-    <table>
-      <tr><th>日期</th><th>会员</th><th>金额</th><th>备注</th></tr>
-      ${rechargeRecords.slice().reverse().map(r => `
-        <tr><td>${fmtDate(r.date)}</td><td>${r.name}</td><td>¥${r.amount}</td><td>${r.note||''}</td></tr>
-      `).join('')}
-    </table>` : ''}
-    <div class="section-title">业绩明细</div>
-    <table>
-      <tr><th>日期</th><th>员工</th><th>项目</th><th>类型</th><th>金额</th><th>提成</th></tr>
-      ${records.slice().reverse().map(r => `
-        <tr><td>${fmtDate(r.date)}</td><td>${r.staffName}</td><td>${r.projectName}</td><td>${r.type}</td><td>¥${r.amount}</td><td>¥${r.commission}</td></tr>
-      `).join('')}
-    </table>
-  `;
-
+  let result = '\n    <div class="stat-grid">\n      <div class="stat-box"><div class="num">' + records.length + '</div><div class="label">总笔数</div></div>\n      <div class="stat-box green"><div class="num">' + totalAmount.toFixed(0) + '</div><div class="label">总金额(元)</div></div>\n      <div class="stat-box orange"><div class="num">' + totalCommission.toFixed(0) + '</div><div class="label">总提成(元)</div></div>\n    </div>\n    <div class="stat-grid">\n      <div class="stat-box purple"><div class="num">' + totalRecharge.toFixed(0) + '</div><div class="label">会员充值(元)</div></div>\n      <div class="stat-box blue"><div class="num">' + memberConsume.toFixed(0) + '</div><div class="label">会员消费(元)</div></div>\n    </div>\n    <div class="section-title">按员工汇总</div>\n    <table>\n      <tr><th>员工</th><th>笔数</th><th>金额</th><th>提成</th></tr>\n      ' + Object.entries(staffSummary).map(([name, s]) => '\n        <tr><td>' + name + '</td><td>' + s.count + '</td><td>¥' + s.amount.toFixed(0) + '</td><td>¥' + s.commission.toFixed(2) + '</td></tr>\n      ').join('') + '\n    </table>\n    ' + (rechargeRecords.length > 0 ? '\n    <div class="section-title">会员充值记录</div>\n    <table>\n      <tr><th>日期</th><th>会员</th><th>金额</th><th>备注</th></tr>\n      ' + rechargeRecords.slice().reverse().map(r => '\n        <tr><td>' + fmtDate(r.date) + '</td><td>' + r.name + '</td><td>¥' + r.amount + '</td><td>' + (r.note||'') + '</td></tr>\n      ').join('') + '\n    </table>' : '') + '\n    <div class="section-title">业绩明细</div>\n    <table>\n      <tr><th>日期</th><th>时间</th><th>员工</th><th>项目</th><th>类型</th><th>金额</th><th>提成</th></tr>\n      ' + records.slice().reverse().map(r => '\n        <tr><td>' + fmtDate(r.date) + '</td><td>' + (r.time||'') + '</td><td>' + r.staffName + '</td><td>' + r.projectName + '</td><td>' + r.type + '</td><td>¥' + r.amount + '</td><td>¥' + r.commission + '</td></tr>\n      ').join('') + '\n    </table>\n  ';
   document.getElementById('reportResult').innerHTML = result;
 }
 
