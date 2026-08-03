@@ -328,8 +328,12 @@ async function saveData() { const r = await API.save(appData); if (!r.success) s
 
 function switchRole(role) {
   currentRole = role;
-  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  document.querySelectorAll('.role-btn').forEach(b => {
+    b.classList.remove('active');
+    if ((role === 'boss' && b.textContent.includes('老板')) || (role === 'staff' && b.textContent.includes('员工'))) {
+      b.classList.add('active');
+    }
+  });
   document.getElementById('bossLogin').classList.toggle('hidden', role !== 'boss');
   document.getElementById('staffLogin').classList.toggle('hidden', role !== 'staff');
 }
