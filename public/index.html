@@ -288,7 +288,7 @@ function todayStr() { const d = new Date(); return d.getFullYear() + '-' + Strin
 function monthStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
 function fmtDate(d) { if (!d) return ''; return d.substring(5).replace('-','/'); }
 function genId() { return Date.now().toString() + Math.random().toString(36).substr(2, 5); }
-function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"').replace(/'/g,'''); }
+function esc(s) { if (!s) return ''; return String(s).replace(/\x26/g,'\x26amp;').replace(/\x3C/g,'\x26lt;').replace(/\x3E/g,'\x26gt;').replace(/"/g,'\x26quot;').replace(/'/g,'\x26#39;'); }
 
 function getCommissionRate(staffName, projectName, type) {
   const staff = appData.staff.find(s => s.name === staffName);
