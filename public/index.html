@@ -29,6 +29,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hi
 .btn-gray { background:#999; }
 .btn-purple { background:var(--purple); }
 .btn-sm { padding:6px 10px; font-size:12px; width:auto; }
+.btn-xs { padding:4px 8px; font-size:11px; width:auto; }
 .btn-outline { background:#fff; color:var(--pink); border:2px solid var(--pink); }
 input,select,textarea { width:100%; padding:12px; border:2px solid #e0e0e0; border-radius:8px; font-size:15px; margin-bottom:10px; outline:none; transition:border .2s; }
 input:focus,select:focus,textarea:focus { border-color:var(--pink); }
@@ -41,8 +42,8 @@ label { display:block; font-size:14px; color:#666; margin-bottom:4px; margin-top
 .tab-bar .tab .icon { font-size:18px; display:block; margin-bottom:2px; }
 .list-item { display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #f0f0f0; }
 .list-item:last-child { border-bottom:none; }
-.list-item .info { flex:1; }
-.list-item .info .name { font-size:15px; font-weight:500; }
+.list-item .info { flex:1; min-width:0; }
+.list-item .info .name { font-size:15px; font-weight:500; word-break:break-all; }
 .list-item .info .detail { font-size:12px; color:#999; margin-top:2px; }
 .list-item .actions { display:flex; gap:4px; flex-shrink:0; }
 .empty { text-align:center; padding:30px; color:#999; font-size:14px; }
@@ -74,11 +75,12 @@ label { display:block; font-size:14px; color:#666; margin-bottom:4px; margin-top
 .mt-10 { margin-top:10px; }
 .mt-20 { margin-top:20px; }
 .mb-10 { margin-bottom:10px; }
+.mb-5 { margin-bottom:5px; }
 .flex { display:flex; align-items:center; }
 .flex-between { display:flex; justify-content:space-between; align-items:center; }
 .gap-10 { gap:10px; }
 table { width:100%; border-collapse:collapse; font-size:13px; }
-table th { background:var(--pink-light); padding:8px; text-align:left; color:var(--pink-dark); }
+table th { background:var(--pink-light); padding:8px; text-align:left; color:var(--pink-dark); white-space:nowrap; }
 table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 .section-title { font-size:14px; color:#999; margin:16px 0 8px; padding-left:4px; }
 .role-switch { display:flex; gap:10px; margin-bottom:16px; }
@@ -88,6 +90,9 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 .tag-default { background:#e0e0e0; color:#666; }
 .tag-custom { background:var(--pink-light); color:var(--pink-dark); }
 .tag-green { background:#e8f5e9; color:var(--green); }
+.tag-blue { background:#e3f2fd; color:var(--blue); }
+.tag-done { background:#c8e6c9; color:#2e7d32; }
+.tag-pending { background:#fff9c4; color:#f57f17; }
 </style>
 </head>
 <body>
@@ -97,7 +102,6 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 <div class="sub">业绩记录 · 员工管理 · 会员储值 · 实时同步</div>
 </div>
 
-<!-- 登录页 -->
 <div id="loginPage" class="container">
 <div class="card">
 <h2>选择身份登录</h2>
@@ -120,9 +124,8 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 </div>
 </div>
 
-<!-- 主应用 -->
 <div id="mainApp" class="hidden">
-<!-- 首页 -->
+
 <div id="page-home" class="container">
 <div class="stat-grid" id="homeStats">
 <div class="stat-box"><div class="num" id="statToday">0</div><div class="label">今日业绩(元)</div></div>
@@ -149,10 +152,10 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 </div>
 </div>
 
-<!-- 录业绩 -->
 <div id="page-record" class="container hidden">
 <div class="card">
 <h2>📝 录入业绩</h2>
+<input type="hidden" id="editRecordId">
 <label>选择员工</label>
 <select id="recStaff" onchange="calcCommission()"></select>
 <label>选择项目</label>
@@ -174,14 +177,17 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 </div>
 <div class="form-row">
 <div><label>提成(元)</label><input type="number" id="recCommission" placeholder="0" readonly></div>
-<div><label>备注(可选)</label><input type="text" id="recNote" placeholder="备注信息"></div>
+<div><label>日期</label><input type="date" id="recDate"></div>
 </div>
+<label>备注(可选)</label><input type="text" id="recNote" placeholder="备注信息">
 <div id="rateInfo" style="font-size:12px;color:#999;margin-bottom:8px;"></div>
-<button class="btn btn-green mt-10" onclick="submitRecord()">✅ 提交业绩</button>
+<div class="form-row">
+<button class="btn btn-green" onclick="submitRecord()">✅ 提交业绩</button>
+<button class="btn btn-gray hidden" id="cancelEditBtn" onclick="cancelEdit()">取消编辑</button>
+</div>
 </div>
 </div>
 
-<!-- 预约 -->
 <div id="page-appointment" class="container hidden">
 <div class="card">
 <h2>📅 预约管理</h2>
@@ -190,16 +196,20 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 </div>
 </div>
 
-<!-- 项目管理 -->
 <div id="page-project" class="container hidden">
 <div class="card">
 <h2>💅 项目管理</h2>
 <button class="btn btn-purple mb-10" onclick="showProjectModal()">➕ 添加项目</button>
+<div id="projectFilter" class="mb-10" style="display:flex;gap:6px;">
+<button class="btn btn-sm" style="background:var(--pink)" onclick="filterProjects('all')">全部</button>
+<button class="btn btn-sm btn-outline" onclick="filterProjects('美甲')">💅 美甲</button>
+<button class="btn btn-sm btn-outline" onclick="filterProjects('美睫')">👁 美睫</button>
+<button class="btn btn-sm btn-outline" onclick="filterProjects('其他')">📦 其他</button>
+</div>
 <div id="projectList"></div>
 </div>
 </div>
 
-<!-- 管理页（员工+会员+提成方案） -->
 <div id="page-staff" class="container hidden">
 <div class="card">
 <h2>👥 员工管理</h2>
@@ -218,7 +228,6 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 </div>
 </div>
 
-<!-- 对账 -->
 <div id="page-report" class="container hidden">
 <div class="card">
 <h2>📈 业绩对账</h2>
@@ -226,13 +235,19 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 <div><label>开始日期</label><input type="date" id="reportStart"></div>
 <div><label>结束日期</label><input type="date" id="reportEnd"></div>
 </div>
+<div class="form-row">
+<div><label>选择员工</label><select id="reportStaff"><option value="">全部员工</option></select></div>
+<div><label>项目分类</label><select id="reportCategory"><option value="">全部分类</option><option value="美甲">美甲</option><option value="美睫">美睫</option><option value="其他">其他</option></select></div>
+</div>
+<div class="form-row">
+<div><label>搜索关键词</label><input type="text" id="reportSearch" placeholder="项目/员工/备注/金额"></div>
+</div>
 <button class="btn btn-orange mb-10" onclick="loadReport()">🔍 查询</button>
 <div id="reportResult"></div>
 </div>
 </div>
 </div>
 
-<!-- 底部导航 -->
 <div id="tabBar" class="tab-bar hidden">
 <div class="tab active" onclick="navTo('home')"><span class="icon">🏠</span>首页</div>
 <div class="tab" onclick="navTo('record')"><span class="icon">📝</span>录业绩</div>
@@ -242,20 +257,16 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 <div class="tab" onclick="navTo('staff')"><span class="icon">👥</span>管理</div>
 </div>
 
-<!-- 模态框 -->
-<div class="modal-overlay" id="modalOverlay">
-<div class="modal" id="modalContent"></div>
-</div>
-
+<div class="modal-overlay" id="modalOverlay"><div class="modal" id="modalContent"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
-// ============ 全局状态 ============
 let appData = { rules:{}, projects:[], staff:[], members:[], records:[], appointments:[] };
 let currentRole = 'boss';
 let currentStaff = null;
 let currentPage = 'home';
 let savedBossPwd = '';
+let projectFilter = 'all';
 
 const API = {
   get: () => fetch('/api/data').then(r => r.json()),
@@ -264,63 +275,30 @@ const API = {
   exportReport: (body) => fetch('/api/export-report', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
 };
 
-// ============ 工具 ============
 function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2000);
 }
+function showModal(html) { document.getElementById('modalContent').innerHTML = html; document.getElementById('modalOverlay').classList.add('show'); }
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function monthStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+function fmtDate(d) { if (!d) return ''; return d.substring(5).replace('-','/'); }
+function genId() { return Date.now().toString() + Math.random().toString(36).substr(2, 5); }
+function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"').replace(/'/g,'''); }
 
-function showModal(html) {
-  document.getElementById('modalContent').innerHTML = html;
-  document.getElementById('modalOverlay').classList.add('show');
-}
-
-function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('show');
-}
-
-function todayStr() {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-
-function monthStr() {
-  const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-}
-
-function fmtDate(d) {
-  if (!d) return '';
-  return d.substring(5).replace('-','/');
-}
-
-function genId() {
-  return Date.now().toString() + Math.random().toString(36).substr(2, 5);
-}
-
-// ============ 提成计算 ============
 function getCommissionRate(staffName, projectName, type) {
   const staff = appData.staff.find(s => s.name === staffName);
   const project = appData.projects.find(p => p.name === projectName);
   const defaultRate = appData.rules[type] || 0;
-  let rate = defaultRate;
-  let source = '默认比例';
-  if (project && project.commissionRate !== null && project.commissionRate !== undefined) {
-    rate = project.commissionRate;
-    source = '项目比例';
-  }
+  let rate = defaultRate, source = '默认比例';
+  if (project && project.commissionRate !== null && project.commissionRate !== undefined) { rate = project.commissionRate; source = '项目比例'; }
   if (staff && staff.commissionRates) {
-    const staffRate = staff.commissionRates[type];
-    if (staffRate !== null && staffRate !== undefined) {
-      rate = staffRate;
-      source = '员工比例';
-    }
+    const sr = staff.commissionRates[type];
+    if (sr !== null && sr !== undefined) { rate = sr; source = '员工比例'; }
   }
   return { rate, source };
 }
-
 function calcCommission() {
   const staffName = document.getElementById('recStaff').value;
   const projectName = document.getElementById('recProject').value;
@@ -328,21 +306,12 @@ function calcCommission() {
   const amount = parseFloat(document.getElementById('recAmount').value) || 0;
   const manualRate = document.getElementById('recRate').value;
   let rate, source;
-  if (manualRate !== '') {
-    rate = parseFloat(manualRate) || 0;
-    source = '手动输入';
-  } else {
-    const result = getCommissionRate(staffName, projectName, type);
-    rate = result.rate;
-    source = result.source;
-  }
-  const commission = (amount * rate / 100).toFixed(2);
-  document.getElementById('recCommission').value = commission;
-  const info = document.getElementById('rateInfo');
-  info.innerHTML = '提成来源: <span class="text-pink">' + source + '</span> | 比例: <span class="text-pink">' + rate + '%</span>';
+  if (manualRate !== '') { rate = parseFloat(manualRate) || 0; source = '手动输入'; }
+  else { const r = getCommissionRate(staffName, projectName, type); rate = r.rate; source = r.source; }
+  document.getElementById('recCommission').value = (amount * rate / 100).toFixed(2);
+  document.getElementById('rateInfo').innerHTML = '提成来源: <span class="text-pink">' + source + '</span> | 比例: <span class="text-pink">' + rate + '%</span>';
 }
 
-// ============ 数据加载 ============
 async function loadData() {
   try {
     appData = await API.get();
@@ -353,19 +322,10 @@ async function loadData() {
     if (!appData.records) appData.records = [];
     if (!appData.appointments) appData.appointments = [];
     return true;
-  } catch(e) {
-    showToast('网络错误，请重试');
-    return false;
-  }
+  } catch(e) { showToast('网络错误'); return false; }
 }
+async function saveData() { const r = await API.save(appData); if (!r.success) showToast('保存失败'); return r.success; }
 
-async function saveData() {
-  const res = await API.save(appData);
-  if (!res.success) showToast('保存失败');
-  return res.success;
-}
-
-// ============ 登录 ============
 function switchRole(role) {
   currentRole = role;
   document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
@@ -373,35 +333,22 @@ function switchRole(role) {
   document.getElementById('bossLogin').classList.toggle('hidden', role !== 'boss');
   document.getElementById('staffLogin').classList.toggle('hidden', role !== 'staff');
 }
-
 async function loginBoss() {
   const pwd = document.getElementById('bossPwd').value.trim();
   if (!pwd) { showToast('请输入密码'); return; }
   const res = await API.verifyBoss(pwd);
-  if (res.success) {
-    currentRole = 'boss';
-    savedBossPwd = pwd;
-    await enterApp();
-  } else {
-    showToast('密码错误');
-  }
+  if (res.success) { currentRole = 'boss'; savedBossPwd = pwd; await enterApp(); }
+  else showToast('密码错误');
 }
-
 async function loginStaff() {
   const name = document.getElementById('staffName').value.trim();
   const pwd = document.getElementById('staffPwd').value.trim();
   if (!name || !pwd) { showToast('请输入完整'); return; }
   await loadData();
   const staff = appData.staff.find(s => s.name === name && s.password === pwd);
-  if (staff) {
-    currentRole = 'staff';
-    currentStaff = staff;
-    await enterApp();
-  } else {
-    showToast('姓名或密码错误');
-  }
+  if (staff) { currentRole = 'staff'; currentStaff = staff; await enterApp(); }
+  else showToast('姓名或密码错误');
 }
-
 async function enterApp() {
   document.getElementById('loginPage').classList.add('hidden');
   document.getElementById('mainApp').classList.remove('hidden');
@@ -411,49 +358,32 @@ async function enterApp() {
   renderHome();
   navTo('home');
 }
-
 function updateTabVisibility() {
   const tabs = document.querySelectorAll('.tab');
   if (currentRole === 'staff') {
-    tabs[0].style.display = '';
-    tabs[1].style.display = '';
-    tabs[2].style.display = '';
-    tabs[3].style.display = '';
-    tabs[4].style.display = 'none';
-    tabs[5].style.display = 'none';
-  } else {
-    tabs.forEach(t => t.style.display = '');
-  }
+    tabs[0].style.display = ''; tabs[1].style.display = '';
+    tabs[2].style.display = ''; tabs[3].style.display = '';
+    tabs[4].style.display = 'none'; tabs[5].style.display = 'none';
+  } else { tabs.forEach(t => t.style.display = ''); }
 }
-
 function logout() {
-  currentRole = 'boss';
-  currentStaff = null;
-  savedBossPwd = '';
+  currentRole = 'boss'; currentStaff = null; savedBossPwd = '';
   document.getElementById('mainApp').classList.add('hidden');
   document.getElementById('tabBar').classList.add('hidden');
   document.getElementById('loginPage').classList.remove('hidden');
-  document.getElementById('bossPwd').value = '';
-  document.getElementById('staffName').value = '';
-  document.getElementById('staffPwd').value = '';
 }
 
-// ============ 导航 ============
 function navTo(page) {
-  if (currentRole === 'staff') {
-    const allowed = ['home', 'record', 'report', 'appointment'];
-    if (!allowed.includes(page)) {
-      showToast('员工无权访问此页面');
-      return;
-    }
+  if (currentRole === 'staff' && !['home','record','report','appointment'].includes(page)) {
+    showToast('员工无权访问此页面'); return;
   }
   currentPage = page;
   document.querySelectorAll('#mainApp > .container').forEach(c => c.classList.add('hidden'));
   const el = document.getElementById('page-' + page);
   if (el) el.classList.remove('hidden');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  const tabs = document.querySelectorAll('.tab');
   const tabMap = { home:0, record:1, appointment:2, report:3, project:4, staff:5 };
+  const tabs = document.querySelectorAll('.tab');
   if (tabs[tabMap[page]]) tabs[tabMap[page]].classList.add('active');
   if (page === 'home') renderHome();
   else if (page === 'record') renderRecord();
@@ -463,73 +393,85 @@ function navTo(page) {
   else if (page === 'report') renderReport();
 }
 
-// ============ 首页 ============
 function renderHome() {
-  const today = todayStr();
-  const month = monthStr();
+  const today = todayStr(), month = monthStr();
   const todayRecs = appData.records.filter(r => r.date === today);
   const monthRecs = appData.records.filter(r => r.date && r.date.startsWith(month));
   const todayTotal = todayRecs.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
   const monthTotal = monthRecs.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
   const totalBalance = appData.members.reduce((s,m) => s + (parseFloat(m.balance)||0), 0);
-
   document.getElementById('statToday').textContent = todayTotal.toFixed(0);
   document.getElementById('statMonth').textContent = monthTotal.toFixed(0);
   document.getElementById('statRecords').textContent = appData.records.length;
   document.getElementById('statStaff').textContent = appData.staff.length;
   document.getElementById('statMembers').textContent = appData.members.length;
   document.getElementById('statBalance').textContent = totalBalance.toFixed(0);
-
-  const quickActions = document.getElementById('quickActions');
+  const qa = document.getElementById('quickActions');
   if (currentRole === 'staff') {
-    if (quickActions) quickActions.style.display = 'none';
-    const myTodayRecs = todayRecs.filter(r => r.staffName === currentStaff.name);
-    const myMonthRecs = monthRecs.filter(r => r.staffName === currentStaff.name);
-    document.getElementById('statToday').textContent = myTodayRecs.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
-    document.getElementById('statMonth').textContent = myMonthRecs.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
+    if (qa) qa.style.display = 'none';
+    const myToday = todayRecs.filter(r => r.staffName === currentStaff.name);
+    const myMonth = monthRecs.filter(r => r.staffName === currentStaff.name);
+    document.getElementById('statToday').textContent = myToday.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
+    document.getElementById('statMonth').textContent = myMonth.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
     document.getElementById('statRecords').textContent = appData.records.filter(r => r.staffName === currentStaff.name).length;
-  } else {
-    if (quickActions) quickActions.style.display = '';
-  }
+  } else { if (qa) qa.style.display = ''; }
 
   const list = document.getElementById('todayRecordsList');
-  if (todayRecs.length === 0) {
-    list.innerHTML = '<div class="empty">今日暂无记录</div>';
-  } else {
-    list.innerHTML = todayRecs.map(r => '\n      <div class="list-item">\n        <div class="info">\n          <div class="name">' + r.staffName + ' · ' + r.projectName + ' <span style="color:#999;font-size:12px;">' + (r.time||'') + '</span></div>\n          <div class="detail">' + r.type + ' | ¥' + r.amount + ' | 提成¥' + r.commission + (r.memberName ? ' | 会员:'+r.memberName : '') + ' | ' + (r.note||'') + '</div>\n        </div>\n      </div>').join('');
+  if (todayRecs.length === 0) { list.innerHTML = '<div class="empty">今日暂无记录</div>'; }
+  else {
+    const canEdit = currentRole === 'boss';
+    list.innerHTML = todayRecs.map(r => '<div class="list-item"><div class="info"><div class="name">' + esc(r.staffName) + ' · ' + esc(r.projectName) + ' <span style="color:#999;font-size:12px;">' + esc(r.time||'') + '</span></div><div class="detail">' + esc(r.type) + ' | ¥' + r.amount + ' | 提成¥' + r.commission + (r.memberName ? ' | 会员:'+esc(r.memberName) : '') + ' | ' + esc(r.note||'') + '</div></div>' + (canEdit ? '<div class="actions"><button class="btn btn-xs btn-blue" onclick="editRecord(\'' + r.id + '\')">✏️</button><button class="btn btn-xs btn-red" onclick="delRecord(\'' + r.id + '\')">🗑</button></div>' : '') + '</div>').join('');
   }
 
-  // 员工端：显示自己的预约
   const todayCard = document.getElementById('todayRecordsCard');
   if (currentRole === 'staff') {
     const myAppts = appData.appointments.filter(a => a.staffName === currentStaff.name);
     const todayAppts = myAppts.filter(a => a.date === today);
-    let apptHtml = '';
-    if (todayAppts.length === 0) {
-      apptHtml = '<div class="empty">今日暂无您的预约</div>';
-    } else {
-      apptHtml = todayAppts.sort((a,b) => a.time.localeCompare(b.time)).map(a => '\n        <div class="list-item">\n          <div class="info">\n            <div class="name">📅 ' + a.time + ' · ' + a.customerName + '</div>\n            <div class="detail">' + a.projectName + ' | ' + (a.phone||'') + (a.note ? ' | '+a.note : '') + '</div>\n          </div>\n        </div>').join('');
-    }
-    let apptCard = document.getElementById('staffApptCard');
-    if (!apptCard) {
-      apptCard = document.createElement('div');
-      apptCard.id = 'staffApptCard';
-      apptCard.className = 'card';
-      apptCard.innerHTML = '<h2>📅 今日预约</h2><div id="staffApptList"></div>';
-      todayCard.parentNode.insertBefore(apptCard, todayCard.nextSibling);
-    }
-    document.getElementById('staffApptList').innerHTML = apptHtml;
-  } else {
-    const apptCard = document.getElementById('staffApptCard');
-    if (apptCard) apptCard.remove();
-  }
+    let ah = todayAppts.length === 0 ? '<div class="empty">今日暂无您的预约</div>' : todayAppts.sort((a,b) => a.time.localeCompare(b.time)).map(a => '<div class="list-item"><div class="info"><div class="name">📅 ' + a.time + ' · ' + esc(a.customerName) + '</div><div class="detail">' + esc(a.projectName) + ' | ' + (a.phone||'') + (a.note ? ' | '+esc(a.note) : '') + '</div></div></div>').join('');
+    let ac = document.getElementById('staffApptCard');
+    if (!ac) { ac = document.createElement('div'); ac.id = 'staffApptCard'; ac.className = 'card'; ac.innerHTML = '<h2>📅 今日预约</h2><div id="staffApptList"></div>'; todayCard.parentNode.insertBefore(ac, todayCard.nextSibling); }
+    document.getElementById('staffApptList').innerHTML = ah;
+  } else { const ac = document.getElementById('staffApptCard'); if (ac) ac.remove(); }
 }
 
-// ============ 录业绩 ============
-function renderRecord() {
+function editRecord(id) {
+  const r = appData.records.find(r => r.id === id);
+  if (!r) return;
+  document.getElementById('editRecordId').value = id;
+  document.getElementById('recStaff').value = r.staffName;
+  document.getElementById('recType').value = r.type;
+  document.getElementById('recAmount').value = r.amount;
+  document.getElementById('recRate').value = '';
+  document.getElementById('recCommission').value = r.commission;
+  document.getElementById('recNote').value = r.note || '';
+  document.getElementById('recDate').value = r.date;
+  if (r.type === '会员卡') {
+    document.getElementById('memberSelectBox').classList.remove('hidden');
+    const ms = document.getElementById('recMember');
+    ms.innerHTML = appData.members.map(m => '<option value="' + m.id + '" data-balance="' + (m.balance||0) + '" ' + (m.id === r.memberId ? 'selected' : '') + '>' + m.name + ' (余额¥' + (m.balance||0) + ')</option>').join('');
+  }
+  document.getElementById('cancelEditBtn').classList.remove('hidden');
+  navTo('record');
+  setTimeout(() => { const ps = document.getElementById('recProject'); if (ps) ps.value = r.projectName; }, 100);
+}
+function cancelEdit() {
+  document.getElementById('editRecordId').value = '';
+  document.getElementById('cancelEditBtn').classList.add('hidden');
+  renderRecord();
+}
+async function delRecord(id) {
+  if (!confirm('确定删除此业绩记录？')) return;
+  const r = appData.records.find(r => r.id === id);
+  if (r && r.type === '会员卡' && r.memberId) {
+    const m = appData.members.find(m => m.id === r.memberId);
+    if (m) m.balance = (parseFloat(m.balance)||0) + (parseFloat(r.amount)||0);
+  }
+  appData.records = appData.records.filter(r => r.id !== id);
+  if (await saveData()) { showToast('已删除'); renderHome(); }
+}function renderRecord() {
+  document.getElementById('editRecordId').value = '';
+  document.getElementById('cancelEditBtn').classList.add('hidden');
   const staffSel = document.getElementById('recStaff');
-  const projSel = document.getElementById('recProject');
-
   if (currentRole === 'staff' && currentStaff) {
     staffSel.innerHTML = '<option value="' + currentStaff.name + '">' + currentStaff.name + '</option>';
     staffSel.disabled = true;
@@ -537,94 +479,78 @@ function renderRecord() {
     staffSel.innerHTML = appData.staff.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
     staffSel.disabled = false;
   }
-
-  projSel.innerHTML = appData.projects.map(p => '<option value="' + p.name + '" data-price="' + (p.price||0) + '">' + p.name + ' ¥' + (p.price||0) + '</option>').join('');
+  document.getElementById('recProject').innerHTML = appData.projects.map(p => '<option value="' + p.name + '" data-price="' + (p.price||0) + '">' + esc(p.name) + ' ¥' + (p.price||0) + '</option>').join('');
   document.getElementById('recRate').value = '';
   document.getElementById('recAmount').value = '';
   document.getElementById('recCommission').value = '';
   document.getElementById('recNote').value = '';
+  document.getElementById('recDate').value = todayStr();
   document.getElementById('memberSelectBox').classList.add('hidden');
   document.getElementById('recType').value = '散客';
-
-  if (appData.projects.length > 0) {
-    onProjectChange();
-  }
+  if (appData.projects.length > 0) onProjectChange();
 }
-
 function onProjectChange() {
-  const sel = document.getElementById('recProject');
-  const opt = sel.options[sel.selectedIndex];
-  if (opt) {
-    const price = opt.getAttribute('data-price') || 0;
-    document.getElementById('recAmount').value = price;
+  const opt = document.getElementById('recProject').selectedOptions[0];
+  if (opt && !document.getElementById('editRecordId').value) {
+    document.getElementById('recAmount').value = opt.getAttribute('data-price') || 0;
     calcCommission();
   }
 }
-
 function onTypeChange() {
   const type = document.getElementById('recType').value;
-  const memberBox = document.getElementById('memberSelectBox');
+  const mb = document.getElementById('memberSelectBox');
   if (type === '会员卡') {
-    memberBox.classList.remove('hidden');
-    const memberSel = document.getElementById('recMember');
-    memberSel.innerHTML = '<option value="">请选择会员</option>' + appData.members.map(m =>
-      '<option value="' + m.id + '" data-balance="' + (m.balance||0) + '">' + m.name + ' ' + (m.phone||'') + ' (余额¥' + (m.balance||0) + ')</option>'
-    ).join('');
+    mb.classList.remove('hidden');
+    document.getElementById('recMember').innerHTML = '<option value="">请选择会员</option>' + appData.members.map(m => '<option value="' + m.id + '" data-balance="' + (m.balance||0) + '">' + m.name + ' ' + (m.phone||'') + ' (余额¥' + (m.balance||0) + ')</option>').join('');
     document.getElementById('memberBalanceInfo').textContent = '';
-  } else {
-    memberBox.classList.add('hidden');
-  }
+  } else { mb.classList.add('hidden'); }
   calcCommission();
 }
-
 function onMemberChange() {
-  const sel = document.getElementById('recMember');
-  const opt = sel.options[sel.selectedIndex];
-  if (opt && opt.value) {
-    const balance = opt.getAttribute('data-balance') || 0;
-    document.getElementById('memberBalanceInfo').textContent = '当前余额: ¥' + balance;
-  } else {
-    document.getElementById('memberBalanceInfo').textContent = '';
-  }
+  const opt = document.getElementById('recMember').selectedOptions[0];
+  document.getElementById('memberBalanceInfo').textContent = opt && opt.value ? '当前余额: ¥' + (opt.getAttribute('data-balance')||0) : '';
 }
-
 async function submitRecord() {
+  const editId = document.getElementById('editRecordId').value;
   const staffName = document.getElementById('recStaff').value;
   const projectName = document.getElementById('recProject').value;
   const type = document.getElementById('recType').value;
   const amount = parseFloat(document.getElementById('recAmount').value) || 0;
   const commission = parseFloat(document.getElementById('recCommission').value) || 0;
   const note = document.getElementById('recNote').value.trim();
+  const date = document.getElementById('recDate').value || todayStr();
   const memberSel = document.getElementById('recMember');
-  const memberId = memberSel ? memberSel.value : '';
+  const memberId = (type === '会员卡' && memberSel) ? memberSel.value : '';
   const member = memberId ? appData.members.find(m => m.id === memberId) : null;
+  if (!staffName || !projectName || amount <= 0) { showToast('请填写完整'); return; }
 
-  if (!staffName || !projectName || amount <= 0) {
-    showToast('请填写完整');
-    return;
-  }
-
-  if (type === '会员卡' && member) {
-    if (member.balance < amount) {
-      showToast('会员余额不足（余额¥'+member.balance+'）');
-      return;
+  if (editId) {
+    const r = appData.records.find(r => r.id === editId);
+    if (!r) return;
+    if (r.type === '会员卡' && r.memberId) {
+      const oldM = appData.members.find(m => m.id === r.memberId);
+      if (oldM) oldM.balance = (parseFloat(oldM.balance)||0) + (parseFloat(r.amount)||0);
     }
-    member.balance = parseFloat(member.balance) - amount;
-  }
-
-  appData.records.push({
-    id: genId(),
-    staffName, projectName, type, amount, commission, note,
-    date: todayStr(),
-    time: new Date().toTimeString().substring(0,5),
-    createdBy: currentRole === 'staff' ? currentStaff.name : 'boss',
-    memberId: memberId || null,
-    memberName: member ? member.name : null
-  });
-
-  if (await saveData()) {
-    showToast('✅ 录入成功');
-    navTo('home');
+    r.staffName = staffName; r.projectName = projectName; r.type = type;
+    r.amount = amount; r.commission = commission; r.note = note; r.date = date;
+    r.memberId = memberId || null; r.memberName = member ? member.name : null;
+    if (type === '会员卡' && member) {
+      if (member.balance < amount) { showToast('会员余额不足'); return; }
+      member.balance = parseFloat(member.balance) - amount;
+    }
+    if (await saveData()) { showToast('✅ 修改已保存'); cancelEdit(); navTo('home'); }
+  } else {
+    if (type === '会员卡' && member) {
+      if (member.balance < amount) { showToast('会员余额不足（余额¥'+member.balance+'）'); return; }
+      member.balance = parseFloat(member.balance) - amount;
+    }
+    appData.records.push({
+      id: genId(), staffName, projectName, type, amount, commission, note,
+      date, time: new Date().toTimeString().substring(0,5),
+      createdBy: currentRole === 'staff' ? currentStaff.name : 'boss',
+      memberId: memberId || null, memberName: member ? member.name : null
+    });
+    if (await saveData()) { showToast('✅ 录入成功'); navTo('home'); }
   }
 }
 
@@ -635,19 +561,43 @@ function renderAppointment() {
   if (currentRole === 'staff') {
     appointments = appointments.filter(a => a.staffName === currentStaff.name);
   }
-  if (appointments.length === 0) {
-    list.innerHTML = '<div class="empty">暂无预约</div>';
-    return;
-  }
+  if (appointments.length === 0) { list.innerHTML = '<div class="empty">暂无预约</div>'; return; }
   const sorted = [...appointments].sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
-  list.innerHTML = sorted.map(a => '\n    <div class="list-item">\n      <div class="info">\n        <div class="name">' + a.date + ' ' + a.time + ' · ' + a.customerName + ' · ' + a.projectName + '</div>\n        <div class="detail">' + (a.staffName||'未指定员工') + ' | ' + (a.phone||'') + (a.note ? ' | '+a.note : '') + '</div>\n      </div>\n      ' + (currentRole === 'boss' ? '<div class="actions"><button class="btn btn-sm btn-red" onclick="delAppt(\'' + a.id + '\')">删</button></div>' : '') + '\n    </div>').join('');
-}function showApptModal() {
-  const staffOpts = appData.staff.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
-  const projOpts = appData.projects.map(p => '<option value="' + p.name + '">' + p.name + '</option>').join('');
-  showModal('\n    <h3>📅 新建预约</h3>\n    <label>客户姓名</label><input type="text" id="apptName" placeholder="客户姓名">\n    <label>联系电话</label><input type="tel" id="apptPhone" placeholder="手机号(可选)">\n    <label>预约日期</label><input type="date" id="apptDate">\n    <label>预约时间</label><input type="time" id="apptTime">\n    <label>选择项目</label><select id="apptProject">' + projOpts + '</select>\n    <label>指定员工</label><select id="apptStaff"><option value="">不指定</option>' + staffOpts + '</select>\n    <label>备注</label><input type="text" id="apptNote" placeholder="备注(可选)">\n    <button class="btn btn-blue mt-10" onclick="addAppt()">✅ 确认预约</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
+  const today = todayStr();
+  list.innerHTML = sorted.map(a => {
+    const isPast = a.date < today;
+    const statusTag = isPast ? '<span class="tag tag-done">已完成</span>' : '<span class="tag tag-pending">待服务</span>';
+    let actions = '';
+    if (currentRole === 'boss') {
+      actions = '<button class="btn btn-xs btn-blue" onclick="editAppt(\'' + a.id + '\')">✏️</button><button class="btn btn-xs btn-red" onclick="delAppt(\'' + a.id + '\')">🗑</button>';
+    } else if (currentRole === 'staff') {
+      actions = '<button class="btn btn-xs btn-orange" onclick="transferAppt(\'' + a.id + '\')">转移</button>';
+    }
+    return '<div class="list-item"><div class="info"><div class="name">' + a.date + ' ' + a.time + ' · ' + esc(a.customerName) + ' · ' + esc(a.projectName) + ' ' + statusTag + '</div><div class="detail">' + (a.staffName||'未指定员工') + ' | ' + (a.phone||'') + (a.note ? ' | '+esc(a.note) : '') + '</div></div><div class="actions">' + actions + '</div></div>';
+  }).join('');
 }
 
-async function addAppt() {
+function showApptModal(editId) {
+  const staffOpts = appData.staff.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
+  const projOpts = appData.projects.map(p => '<option value="' + p.name + '">' + p.name + '</option>').join('');
+  let defaults = { name: '', phone: '', date: '', time: '', project: '', staff: '', note: '' };
+  if (editId) {
+    const a = appData.appointments.find(a => a.id === editId);
+    if (a) defaults = { name: a.customerName, phone: a.phone||'', date: a.date, time: a.time, project: a.projectName, staff: a.staffName||'', note: a.note||'' };
+  }
+  showModal('<h3>📅 ' + (editId ? '编辑' : '新建') + '预约</h3>' +
+    '<label>客户姓名</label><input type="text" id="apptName" value="' + esc(defaults.name) + '" placeholder="客户姓名">' +
+    '<label>联系电话</label><input type="tel" id="apptPhone" value="' + defaults.phone + '" placeholder="手机号(可选)">' +
+    '<label>预约日期</label><input type="date" id="apptDate" value="' + defaults.date + '">' +
+    '<label>预约时间</label><input type="time" id="apptTime" value="' + defaults.time + '">' +
+    '<label>选择项目</label><select id="apptProject">' + projOpts.replace('value="' + defaults.project + '"', 'value="' + defaults.project + '" selected') + '</select>' +
+    '<label>指定员工</label><select id="apptStaff"><option value="">不指定</option>' + staffOpts.replace('value="' + defaults.staff + '"', 'value="' + defaults.staff + '" selected') + '</select>' +
+    '<label>备注</label><input type="text" id="apptNote" value="' + esc(defaults.note) + '" placeholder="备注(可选)">' +
+    '<button class="btn btn-blue mt-10" onclick="saveAppt(\'' + (editId||'') + '\')">✅ 确认</button>' +
+    '<button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>');
+}
+
+async function saveAppt(editId) {
   const customerName = document.getElementById('apptName').value.trim();
   const phone = document.getElementById('apptPhone').value.trim();
   const date = document.getElementById('apptDate').value;
@@ -655,310 +605,222 @@ async function addAppt() {
   const projectName = document.getElementById('apptProject').value;
   const staffName = document.getElementById('apptStaff').value;
   const note = document.getElementById('apptNote').value.trim();
-  if (!customerName || !date || !time || !projectName) {
-    showToast('请填写完整');
-    return;
+  if (!customerName || !date || !time || !projectName) { showToast('请填写完整'); return; }
+  if (editId) {
+    const a = appData.appointments.find(a => a.id === editId);
+    if (a) { a.customerName = customerName; a.phone = phone; a.date = date; a.time = time; a.projectName = projectName; a.staffName = staffName; a.note = note; }
+  } else {
+    appData.appointments.push({ id: genId(), customerName, phone, date, time, projectName, staffName, note });
   }
-  appData.appointments.push({
-    id: genId(),
-    customerName, phone, date, time, projectName, staffName, note
-  });
-  if (await saveData()) {
-    showToast('✅ 预约成功');
-    closeModal();
-    renderAppointment();
-  }
+  if (await saveData()) { showToast('✅ ' + (editId ? '修改' : '预约') + '成功'); closeModal(); renderAppointment(); }
 }
 
+function editAppt(id) { showApptModal(id); }
+
 async function delAppt(id) {
+  if (!confirm('确定删除此预约？')) return;
   appData.appointments = appData.appointments.filter(a => a.id !== id);
-  if (await saveData()) {
-    showToast('已删除');
-    renderAppointment();
-  }
+  if (await saveData()) { showToast('已删除'); renderAppointment(); }
+}
+
+function transferAppt(apptId) {
+  const a = appData.appointments.find(a => a.id === apptId);
+  if (!a) return;
+  const opts = appData.staff.filter(s => s.name !== a.staffName).map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
+  if (!opts) { showToast('没有其他员工可转移'); return; }
+  showModal('<h3>🔄 转移预约</h3><p style="margin-bottom:12px;">将 <b>' + esc(a.customerName) + '</b> 的预约（' + a.date + ' ' + a.time + '）转移给：</p><select id="transferStaff">' + opts + '</select><button class="btn btn-orange mt-10" onclick="doTransferAppt(\'' + a.id + '\')">✅ 确认转移</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>');
+}
+
+async function doTransferAppt(id) {
+  const a = appData.appointments.find(a => a.id === id);
+  if (!a) return;
+  a.staffName = document.getElementById('transferStaff').value;
+  if (await saveData()) { showToast('✅ 已转移'); closeModal(); renderAppointment(); }
 }
 
 // ============ 员工管理 ============
 function renderStaff() {
   const list = document.getElementById('staffList');
-  if (appData.staff.length === 0) {
-    list.innerHTML = '<div class="empty">暂无员工，请添加</div>';
-  } else {
+  if (appData.staff.length === 0) { list.innerHTML = '<div class="empty">暂无员工，请添加</div>'; }
+  else {
     list.innerHTML = appData.staff.map(s => {
       const recs = appData.records.filter(r => r.staffName === s.name);
       const total = recs.reduce((sum,r) => sum + (parseFloat(r.commission)||0), 0);
-      let hasCustom = false;
-      if (s.commissionRates) {
-        ['散客','团购','会员卡'].forEach(t => {
-          if (s.commissionRates[t] !== null && s.commissionRates[t] !== undefined) hasCustom = true;
-        });
-      }
-      return '\n      <div class="list-item">\n        <div class="info">\n          <div class="name">' + s.name + ' ' + (hasCustom ? '<span class="tag tag-custom">自定义比例</span>' : '<span class="tag tag-default">默认比例</span>') + '</div>\n          <div class="detail">' + recs.length + '笔记录 | 总提成¥' + total.toFixed(2) + '</div>\n        </div>\n        <div class="actions">\n          <button class="btn btn-sm btn-orange" onclick="showStaffRateModal(\'' + s.id + '\')">提成</button>\n          <button class="btn btn-sm btn-red" onclick="delStaff(\'' + s.id + '\')">删</button>\n        </div>\n      </div>';
+      let hc = false;
+      if (s.commissionRates) { ['散客','团购','会员卡'].forEach(t => { if (s.commissionRates[t] !== null && s.commissionRates[t] !== undefined) hc = true; }); }
+      return '<div class="list-item"><div class="info"><div class="name">' + esc(s.name) + ' ' + (hc ? '<span class="tag tag-custom">自定义比例</span>' : '<span class="tag tag-default">默认比例</span>') + '</div><div class="detail">' + recs.length + '笔 | 总提成¥' + total.toFixed(2) + '</div></div><div class="actions"><button class="btn btn-xs btn-orange" onclick="showStaffRateModal(\'' + s.id + '\')">提成</button><button class="btn btn-xs btn-red" onclick="delStaff(\'' + s.id + '\')">🗑</button></div></div>';
     }).join('');
   }
-  const rulesList = document.getElementById('rulesList');
-  rulesList.innerHTML = Object.entries(appData.rules).map(([type, rate]) => '\n    <div class="list-item">\n      <div class="info"><div class="name">' + type + '</div></div>\n      <div class="text-pink" style="font-size:18px;font-weight:bold">' + rate + '%</div>\n    </div>').join('');
+  document.getElementById('rulesList').innerHTML = Object.entries(appData.rules).map(([t,r]) => '<div class="list-item"><div class="info"><div class="name">' + t + '</div></div><div class="text-pink" style="font-size:18px;font-weight:bold">' + r + '%</div></div>').join('');
   renderMembers();
 }
 
 function showStaffModal() {
-  showModal('\n    <h3>👥 添加员工</h3>\n    <label>员工姓名</label><input type="text" id="newStaffName" placeholder="姓名">\n    <label>登录密码</label><input type="text" id="newStaffPwd" placeholder="密码">\n    <button class="btn mt-10" onclick="addStaff()">✅ 添加</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
+  showModal('<h3>👥 添加员工</h3><label>员工姓名</label><input type="text" id="newStaffName" placeholder="姓名"><label>登录密码</label><input type="text" id="newStaffPwd" placeholder="密码"><button class="btn mt-10" onclick="addStaff()">✅ 添加</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>');
 }
-
 async function addStaff() {
   const name = document.getElementById('newStaffName').value.trim();
   const password = document.getElementById('newStaffPwd').value.trim();
   if (!name || !password) { showToast('请填写完整'); return; }
   if (appData.staff.find(s => s.name === name)) { showToast('员工已存在'); return; }
   appData.staff.push({ id: genId(), name, password, commissionRates: { '散客':null, '团购':null, '会员卡':null } });
-  if (await saveData()) {
-    showToast('✅ 添加成功');
-    closeModal();
-    renderStaff();
-  }
+  if (await saveData()) { showToast('✅ 添加成功'); closeModal(); renderStaff(); }
 }
-
 async function delStaff(id) {
-  const staff = appData.staff.find(s => s.id === id);
-  if (!staff) return;
-  if (!confirm('确定删除员工「'+staff.name+'」？相关业绩记录会保留。')) return;
+  const s = appData.staff.find(s => s.id === id);
+  if (!s || !confirm('确定删除「' + s.name + '」？')) return;
   appData.staff = appData.staff.filter(s => s.id !== id);
-  if (await saveData()) {
-    showToast('已删除');
-    renderStaff();
-  }
+  if (await saveData()) { showToast('已删除'); renderStaff(); }
 }
-
-function showStaffRateModal(staffId) {
-  const staff = appData.staff.find(s => s.id === staffId);
-  if (!staff) return;
-  if (!staff.commissionRates) staff.commissionRates = { '散客':null, '团购':null, '会员卡':null };
-  const types = ['散客', '团购', '会员卡'];
-  const inputs = types.map(t => {
-    const val = staff.commissionRates[t];
-    const defaultVal = appData.rules[t] || 0;
-    return '\n      <label>' + t + ' 提成比例 (%) <span style="color:#999;font-size:12px">（留空=用默认' + defaultVal + '%）</span></label>\n      <input type="number" id="staffRate_' + t + '" value="' + (val !== null && val !== undefined ? val : '') + '" placeholder="默认' + defaultVal + '%">\n    ';
+function showStaffRateModal(sid) {
+  const s = appData.staff.find(s => s.id === sid); if (!s) return;
+  if (!s.commissionRates) s.commissionRates = { '散客':null, '团购':null, '会员卡':null };
+  const inputs = ['散客','团购','会员卡'].map(t => {
+    const v = s.commissionRates[t]; const d = appData.rules[t]||0;
+    return '<label>' + t + ' 提成比例(%) <span style="color:#999;font-size:12px">（留空=默认' + d + '%）</span></label><input type="number" id="staffRate_' + t + '" value="' + (v!==null&&v!==undefined?v:'') + '" placeholder="默认' + d + '%">';
   }).join('');
-  showModal('\n    <h3>💰 ' + staff.name + ' 的提成设置</h3>\n    <p style="font-size:13px;color:#999;margin-bottom:12px;">留空表示使用默认比例，填写数字表示该员工使用独立比例</p>\n    ' + inputs + '\n    <button class="btn btn-orange mt-10" onclick="saveStaffRates(\'' + staffId + '\')">✅ 保存</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
+  showModal('<h3>💰 ' + esc(s.name) + ' 提成设置</h3><p style="font-size:13px;color:#999;margin-bottom:12px;">留空=默认，填数字=独立比例</p>' + inputs + '<button class="btn btn-orange mt-10" onclick="saveStaffRates(\'' + sid + '\')">✅ 保存</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>');
 }
-
-async function saveStaffRates(staffId) {
-  const staff = appData.staff.find(s => s.id === staffId);
-  if (!staff) return;
-  if (!staff.commissionRates) staff.commissionRates = { '散客':null, '团购':null, '会员卡':null };
-  ['散客', '团购', '会员卡'].forEach(t => {
-    const el = document.getElementById('staffRate_' + t);
-    const val = el.value.trim();
-    if (val === '') { staff.commissionRates[t] = null; }
-    else { staff.commissionRates[t] = parseFloat(val) || 0; }
-  });
-  if (await saveData()) {
-    showToast('✅ 提成设置已保存');
-    closeModal();
-    renderStaff();
-  }
+async function saveStaffRates(sid) {
+  const s = appData.staff.find(s => s.id === sid); if (!s) return;
+  if (!s.commissionRates) s.commissionRates = { '散客':null, '团购':null, '会员卡':null };
+  ['散客','团购','会员卡'].forEach(t => { const el = document.getElementById('staffRate_'+t); const v = el.value.trim(); s.commissionRates[t] = v==='' ? null : (parseFloat(v)||0); });
+  if (await saveData()) { showToast('✅ 已保存'); closeModal(); renderStaff(); }
 }
 
 function showRulesModal() {
-  const inputs = Object.entries(appData.rules).map(([type, rate]) =>
-    '<label>' + type + ' 默认提成比例 (%)</label><input type="number" id="rule_' + type + '" value="' + rate + '" placeholder="0">'
-  ).join('');
-  showModal('\n    <h3>💰 修改默认提成方案</h3>\n    <p style="font-size:13px;color:#999;margin-bottom:12px;">这是所有员工和项目的默认比例，员工有独立比例的会覆盖此默认值</p>\n    ' + inputs + '\n    <button class="btn btn-orange mt-10" onclick="saveRules()">✅ 保存</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
+  const inputs = Object.entries(appData.rules).map(([t,r]) => '<label>' + t + ' 默认提成比例(%)</label><input type="number" id="rule_' + t + '" value="' + r + '" placeholder="0">').join('');
+  showModal('<h3>💰 修改默认提成方案</h3><p style="font-size:13px;color:#999;margin-bottom:12px;">所有员工和项目的默认比例</p>' + inputs + '<button class="btn btn-orange mt-10" onclick="saveRules()">✅ 保存</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>');
 }
-
 async function saveRules() {
-  Object.keys(appData.rules).forEach(type => {
-    const el = document.getElementById('rule_' + type);
-    if (el) appData.rules[type] = parseFloat(el.value) || 0;
-  });
-  if (await saveData()) {
-    showToast('✅ 已保存');
-    closeModal();
-    renderStaff();
-  }
+  Object.keys(appData.rules).forEach(t => { const el = document.getElementById('rule_'+t); if (el) appData.rules[t] = parseFloat(el.value)||0; });
+  if (await saveData()) { showToast('✅ 已保存'); closeModal(); renderStaff(); }
 }
 
 // ============ 项目管理 ============
+function filterProjects(cat) { projectFilter = cat; document.querySelectorAll('#projectFilter .btn').forEach((b,i) => { b.className = i===0 ? (cat==='all'?'btn btn-sm':'btn btn-sm btn-outline') : (b.textContent.includes(cat.replace('美甲','💅').replace('美睫','👁').replace('其他','📦')) ? 'btn btn-sm' : 'btn btn-sm btn-outline'); }); renderProject(); }
 function renderProject() {
   const list = document.getElementById('projectList');
-  if (appData.projects.length === 0) {
-    list.innerHTML = '<div class="empty">暂无项目，请添加</div>';
-  } else {
-    list.innerHTML = appData.projects.map(p => {
-      const rateTag = (p.commissionRate !== null && p.commissionRate !== undefined)
-        ? '<span class="tag tag-custom">' + p.commissionRate + '%</span>'
-        : '<span class="tag tag-default">默认</span>';
-      return '\n      <div class="list-item">\n        <div class="info">\n          <div class="name">' + p.name + ' ' + rateTag + '</div>\n          <div class="detail">价格 ¥' + (p.price||0) + ' ' + (p.commissionRate !== null && p.commissionRate !== undefined ? '| 独立提成'+p.commissionRate+'%' : '') + '</div>\n        </div>\n        <div class="actions">\n          <button class="btn btn-sm btn-blue" onclick="showEditProjectModal(\'' + p.id + '\')">编辑</button>\n          <button class="btn btn-sm btn-red" onclick="delProject(\'' + p.id + '\')">删</button>\n        </div>\n      </div>';
-    }).join('');
-  }
+  let projects = appData.projects;
+  if (projectFilter !== 'all') projects = projects.filter(p => (p.category||'其他') === projectFilter);
+  if (projects.length === 0) { list.innerHTML = '<div class="empty">暂无项目</div>'; return; }
+  list.innerHTML = projects.map(p => {
+    const rt = (p.commissionRate !== null && p.commissionRate !== undefined) ? '<span class="tag tag-custom">' + p.commissionRate + '%</span>' : '<span class="tag tag-default">默认</span>';
+    const cat = p.category || '其他';
+    return '<div class="list-item"><div class="info"><div class="name">' + esc(p.name) + ' ' + rt + ' <span class="tag tag-blue">' + cat + '</span></div><div class="detail">价格 ¥' + (p.price||0) + (p.commissionRate!==null&&p.commissionRate!==undefined?' | 独立提成'+p.commissionRate+'%':'') + '</div></div><div class="actions"><button class="btn btn-xs btn-blue" onclick="showEditProjectModal(\'' + p.id + '\')">✏️</button><button class="btn btn-xs btn-red" onclick="delProject(\'' + p.id + '\')">🗑</button></div></div>';
+  }).join('');
 }
-
 function showProjectModal() {
-  showModal('\n    <h3>💅 添加项目</h3>\n    <label>项目名称</label><input type="text" id="newProjName" placeholder="如: 美甲基础款">\n    <label>默认价格(元)</label><input type="number" id="newProjPrice" placeholder="0">\n    <label>独立提成比例(%) <span style="color:#999;font-size:12px">（留空=用默认比例）</span></label><input type="number" id="newProjRate" placeholder="留空=默认">\n    <button class="btn btn-purple mt-10" onclick="addProject()">✅ 添加</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
+  showModal('<h3>💅 添加项目</h3><label>项目名称</label><input type="text" id="newProjName" placeholder="如: 美甲基础款"><label>项目分类</label><select id="newProjCat"><option value="美甲">💅 美甲</option><option value="美睫">👁 美睫</option><option value="其他">📦 其他</option></select><label>默认价格(元)</label><input type="number" id="newProjPrice" placeholder="0"><label>独立提成比例(%) <span style="color:#999;font-size:12px">（留空=默认）</span></label><input type="number" id="newProjRate" placeholder="留空=默认"><button class="btn btn-purple mt-10" onclick="addProject()">✅ 添加</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>');
 }
-
 async function addProject() {
   const name = document.getElementById('newProjName').value.trim();
+  const category = document.getElementById('newProjCat').value;
   const price = parseFloat(document.getElementById('newProjPrice').value) || 0;
-  const rateStr = document.getElementById('newProjRate').value.trim();
-  const commissionRate = rateStr === '' ? null : (parseFloat(rateStr) || 0);
+  const rs = document.getElementById('newProjRate').value.trim();
   if (!name) { showToast('请输入项目名'); return; }
-  if (appData.projects.find(p => p.name === name)) { showToast('项目已存在'); return; }
-  appData.projects.push({ id: genId(), name, price, commissionRate });
-  if (await saveData()) {
-    showToast('✅ 添加成功');
-    closeModal();
-    renderProject();
-  }
+  appData.projects.push({ id: genId(), name, category, price, commissionRate: rs==='' ? null : (parseFloat(rs)||0) });
+  if (await saveData()) { showToast('✅ 添加成功'); closeModal(); renderProject(); }
 }
-
-function showEditProjectModal(projId) {
-  const p = appData.projects.find(p => p.id === projId);
-  if (!p) return;
-  const rateVal = (p.commissionRate !== null && p.commissionRate !== undefined) ? p.commissionRate : '';
-  showModal('\n    <h3>💅 编辑项目</h3>\n    <label>项目名称</label><input type="text" id="editProjName" value="' + p.name + '">\n    <label>默认价格(元)</label><input type="number" id="editProjPrice" value="' + (p.price||0) + '">\n    <label>独立提成比例(%) <span style="color:#999;font-size:12px">（留空=用默认比例）</span></label><input type="number" id="editProjRate" value="' + rateVal + '" placeholder="留空=默认">\n    <button class="btn btn-blue mt-10" onclick="saveEditProject(\'' + p.id + '\')">✅ 保存修改</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
+function showEditProjectModal(pid) {
+  const p = appData.projects.find(p => p.id === pid); if (!p) return;
+  const rv = (p.commissionRate!==null&&p.commissionRate!==undefined) ? p.commissionRate : '';
+  showModal('<h3>💅 编辑项目</h3><label>项目名称</label><input type="text" id="editProjName" value="' + esc(p.name) + '"><label>项目分类</label><select id="editProjCat"><option value="美甲"' + (p.category==='美甲'?' selected':'') + '>💅 美甲</option><option value="美睫"' + (p.category==='美睫'?' selected':'') + '>👁 美睫</option><option value="其他"' + ((p.category||'其他')==='其他'?' selected':'') + '>📦 其他</option></select><label>默认价格(元)</label><input type="number" id="editProjPrice" value="' + (p.price||0) + '"><label>独立提成比例(%)</label><input type="number" id="editProjRate" value="' + rv + '" placeholder="留空=默认"><button class="btn btn-blue mt-10" onclick="saveEditProject(\'' + p.id + '\')">✅ 保存</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>');
 }
-
-async function saveEditProject(projId) {
-  const p = appData.projects.find(p => p.id === projId);
-  if (!p) return;
-  const name = document.getElementById('editProjName').value.trim();
-  const price = parseFloat(document.getElementById('editProjPrice').value) || 0;
-  const rateStr = document.getElementById('editProjRate').value.trim();
-  if (!name) { showToast('请输入项目名'); return; }
-  p.name = name;
-  p.price = price;
-  p.commissionRate = rateStr === '' ? null : (parseFloat(rateStr) || 0);
-  if (await saveData()) {
-    showToast('✅ 修改已保存');
-    closeModal();
-    renderProject();
-  }
+async function saveEditProject(pid) {
+  const p = appData.projects.find(p => p.id === pid); if (!p) return;
+  p.name = document.getElementById('editProjName').value.trim();
+  p.category = document.getElementById('editProjCat').value;
+  p.price = parseFloat(document.getElementById('editProjPrice').value) || 0;
+  const rs = document.getElementById('editProjRate').value.trim();
+  p.commissionRate = rs==='' ? null : (parseFloat(rs)||0);
+  if (!p.name) { showToast('请输入项目名'); return; }
+  if (await saveData()) { showToast('✅ 已保存'); closeModal(); renderProject(); }
 }
-
 async function delProject(id) {
   const p = appData.projects.find(p => p.id === id);
-  if (!p) return;
-  if (!confirm('确定删除项目「'+p.name+'」？')) return;
+  if (!p || !confirm('删除「' + p.name + '」？')) return;
   appData.projects = appData.projects.filter(p => p.id !== id);
-  if (await saveData()) {
-    showToast('已删除');
-    renderProject();
-  }
+  if (await saveData()) { showToast('已删除'); renderProject(); }
 }
 
 // ============ 会员管理 ============
 function renderMembers() {
-  const list = document.getElementById('memberList');
-  if (!list) return;
-  if (appData.members.length === 0) {
-    list.innerHTML = '<div class="empty">暂无会员，请添加</div>';
-    return;
-  }
-  list.innerHTML = appData.members.map(m => {
-    const balance = parseFloat(m.balance) || 0;
-    const balanceClass = balance > 0 ? 'text-green' : 'text-red';
-    return '\n    <div class="list-item">\n      <div class="info">\n        <div class="name">' + m.name + ' <span class="tag tag-green">余额¥' + balance.toFixed(2) + '</span></div>\n        <div class="detail">' + (m.phone||'无电话') + ' | 卡号:' + (m.cardNo||'无') + ' | 充值' + ((m.rechargeHistory||[]).length) + '次</div>\n      </div>\n      <div class="actions">\n        <button class="btn btn-sm btn-green" onclick="showRechargeModal(\'' + m.id + '\')">充值</button>\n        <button class="btn btn-sm btn-blue" onclick="showEditMemberModal(\'' + m.id + '\')">编辑</button>\n        <button class="btn btn-sm btn-red" onclick="delMember(\'' + m.id + '\')">删</button>\n      </div>\n    </div>';
-  }).join('');
+  const list = document.getElementById('memberList'); if (!list) return;
+  if (appData.members.length === 0) { list.innerHTML = '<div class="empty">暂无会员</div>'; return; }
+  list.innerHTML = appData.members.map(m => '<div class="list-item"><div class="info"><div class="name">' + esc(m.name) + ' <span class="tag tag-green">余额¥' + (parseFloat(m.balance)||0).toFixed(2) + '</span></div><div class="detail">' + (m.phone||'无电话') + ' | 卡号:' + (m.cardNo||'无') + ' | 充值' + ((m.rechargeHistory||[]).length) + '次</div></div><div class="actions"><button class="btn btn-xs btn-green" onclick="showRechargeModal(\'' + m.id + '\')">充值</button><button class="btn btn-xs btn-blue" onclick="showEditMemberModal(\'' + m.id + '\')">✏️</button><button class="btn btn-xs btn-red" onclick="delMember(\'' + m.id + '\')">🗑</button></div></div>').join('');
 }
-
 function showMemberModal() {
-  showModal('\n    <h3>👤 添加会员</h3>\n    <label>会员姓名</label><input type="text" id="newMemName" placeholder="姓名">\n    <label>手机号</label><input type="tel" id="newMemPhone" placeholder="手机号(可选)">\n    <label>卡号</label><input type="text" id="newMemCardNo" placeholder="卡号(可选)">\n    <label>初始余额(元)</label><input type="number" id="newMemBalance" value="0" placeholder="0">\n    <button class="btn btn-purple mt-10" onclick="addMember()">✅ 添加</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
+  showModal('<h3>👤 添加会员</h3><label>会员姓名</label><input type="text" id="newMemName" placeholder="姓名"><label>手机号</label><input type="tel" id="newMemPhone" placeholder="手机号"><label>卡号</label><input type="text" id="newMemCardNo" placeholder="卡号"><label>初始余额(元)</label><input type="number" id="newMemBalance" value="0"><button class="btn btn-purple mt-10" onclick="addMember()">✅ 添加</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>');
 }
-
 async function addMember() {
   const name = document.getElementById('newMemName').value.trim();
   const phone = document.getElementById('newMemPhone').value.trim();
   const cardNo = document.getElementById('newMemCardNo').value.trim();
   const balance = parseFloat(document.getElementById('newMemBalance').value) || 0;
   if (!name) { showToast('请输入姓名'); return; }
-  const member = { id: genId(), name, phone, cardNo, balance, rechargeHistory: [] };
-  if (balance > 0) {
-    member.rechargeHistory.push({ amount: balance, date: todayStr(), note: '初始充值' });
-  }
-  appData.members.push(member);
-  if (await saveData()) {
-    showToast('✅ 添加成功');
-    closeModal();
-    renderMembers();
-  }
+  const m = { id: genId(), name, phone, cardNo, balance, rechargeHistory: [] };
+  if (balance > 0) m.rechargeHistory.push({ amount: balance, date: todayStr(), note: '初始充值' });
+  appData.members.push(m);
+  if (await saveData()) { showToast('✅ 添加成功'); closeModal(); renderMembers(); }
 }
-
-function showEditMemberModal(memberId) {
-  const m = appData.members.find(m => m.id === memberId);
-  if (!m) return;
-  showModal('\n    <h3>👤 编辑会员</h3>\n    <label>会员姓名</label><input type="text" id="editMemName" value="' + m.name + '">\n    <label>手机号</label><input type="tel" id="editMemPhone" value="' + (m.phone||'') + '">\n    <label>卡号</label><input type="text" id="editMemCardNo" value="' + (m.cardNo||'') + '">\n    <label>当前余额(元)</label><input type="number" id="editMemBalance" value="' + (m.balance||0) + '" readonly>\n    <button class="btn btn-blue mt-10" onclick="saveEditMember(\'' + m.id + '\')">✅ 保存修改</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n  ');
+function showEditMemberModal(mid) {
+  const m = appData.members.find(m => m.id === mid); if (!m) return;
+  showModal('<h3>👤 编辑会员</h3><label>姓名</label><input type="text" id="editMemName" value="' + esc(m.name) + '"><label>手机号</label><input type="tel" id="editMemPhone" value="' + (m.phone||'') + '"><label>卡号</label><input type="text" id="editMemCardNo" value="' + (m.cardNo||'') + '"><label>余额(元)</label><input type="number" id="editMemBalance" value="' + (m.balance||0) + '" readonly><button class="btn btn-blue mt-10" onclick="saveEditMember(\'' + m.id + '\')">✅ 保存</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>');
 }
-
-async function saveEditMember(memberId) {
-  const m = appData.members.find(m => m.id === memberId);
-  if (!m) return;
+async function saveEditMember(mid) {
+  const m = appData.members.find(m => m.id === mid); if (!m) return;
   m.name = document.getElementById('editMemName').value.trim();
   m.phone = document.getElementById('editMemPhone').value.trim();
   m.cardNo = document.getElementById('editMemCardNo').value.trim();
   if (!m.name) { showToast('请输入姓名'); return; }
-  if (await saveData()) {
-    showToast('✅ 修改已保存');
-    closeModal();
-    renderMembers();
-  }
+  if (await saveData()) { showToast('✅ 已保存'); closeModal(); renderMembers(); }
 }
-
-function showRechargeModal(memberId) {
-  const m = appData.members.find(m => m.id === memberId);
-  if (!m) return;
-  let rechargeHtml = '';
+function showRechargeModal(mid) {
+  const m = appData.members.find(m => m.id === mid); if (!m) return;
+  let rh = '';
   if (m.rechargeHistory && m.rechargeHistory.length > 0) {
-    rechargeHtml = '<div class="section-title">充值记录</div><table><tr><th>日期</th><th>金额</th><th>备注</th></tr>';
-    m.rechargeHistory.slice().reverse().forEach(r => {
-      rechargeHtml += '<tr><td>' + fmtDate(r.date) + '</td><td>¥' + r.amount + '</td><td>' + (r.note||'') + '</td></tr>';
-    });
-    rechargeHtml += '</table>';
+    rh = '<div class="section-title">充值记录</div><table><tr><th>日期</th><th>金额</th><th>备注</th></tr>';
+    m.rechargeHistory.slice().reverse().forEach(r => { rh += '<tr><td>' + fmtDate(r.date) + '</td><td>¥' + r.amount + '</td><td>' + (r.note||'') + '</td></tr>'; });
+    rh += '</table>';
   }
-  showModal('\n    <h3>💰 会员充值 - ' + m.name + '</h3>\n    <p style="font-size:14px;color:#666;margin-bottom:8px;">当前余额: <span class="text-green" style="font-size:18px;font-weight:bold">¥' + (m.balance||0) + '</span></p>\n    <label>充值金额(元)</label><input type="number" id="rechargeAmount" placeholder="0">\n    <label>备注(可选)</label><input type="text" id="rechargeNote" placeholder="如: 微信充值">\n    <button class="btn btn-green mt-10" onclick="doRecharge(\'' + m.id + '\')">✅ 确认充值</button>\n    <button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>\n    ' + rechargeHtml + '\n  ');
+  showModal('<h3>💰 充值 - ' + esc(m.name) + '</h3><p>余额: <span class="text-green" style="font-size:18px;font-weight:bold">¥' + (m.balance||0) + '</span></p><label>金额(元)</label><input type="number" id="rechargeAmount"><label>备注</label><input type="text" id="rechargeNote" placeholder="微信充值"><button class="btn btn-green mt-10" onclick="doRecharge(\'' + m.id + '\')">✅ 确认</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>' + rh);
 }
-
-async function doRecharge(memberId) {
-  const m = appData.members.find(m => m.id === memberId);
-  if (!m) return;
+async function doRecharge(mid) {
+  const m = appData.members.find(m => m.id === mid); if (!m) return;
   const amount = parseFloat(document.getElementById('rechargeAmount').value) || 0;
-  const note = document.getElementById('rechargeNote').value.trim();
-  if (amount <= 0) { showToast('请输入充值金额'); return; }
-  m.balance = (parseFloat(m.balance) || 0) + amount;
+  if (amount <= 0) { showToast('请输入金额'); return; }
+  m.balance = (parseFloat(m.balance)||0) + amount;
   if (!m.rechargeHistory) m.rechargeHistory = [];
-  m.rechargeHistory.push({ amount, date: todayStr(), note });
-  if (await saveData()) {
-    showToast('✅ 充值成功');
-    closeModal();
-    renderMembers();
-  }
+  m.rechargeHistory.push({ amount, date: todayStr(), note: document.getElementById('rechargeNote').value.trim() });
+  if (await saveData()) { showToast('✅ 充值成功'); closeModal(); renderMembers(); }
 }
-
 async function delMember(id) {
   const m = appData.members.find(m => m.id === id);
-  if (!m) return;
-  if (!confirm('确定删除会员「'+m.name+'」？余额¥'+m.balance+'将清零。')) return;
+  if (!m || !confirm('删除「' + m.name + '」？余额¥' + m.balance + '将清零。')) return;
   appData.members = appData.members.filter(m => m.id !== id);
-  if (await saveData()) {
-    showToast('已删除');
-    renderMembers();
-  }
+  if (await saveData()) { showToast('已删除'); renderMembers(); }
 }
 
 // ============ 对账 ============
 function renderReport() {
   const today = todayStr();
-  const monthAgo = new Date();
-  monthAgo.setMonth(monthAgo.getMonth() - 1);
-  const monthAgoStr = monthAgo.getFullYear() + '-' + String(monthAgo.getMonth()+1).padStart(2,'0') + '-' + String(monthAgo.getDate()).padStart(2,'0');
-  document.getElementById('reportStart').value = monthAgoStr;
+  const ma = new Date(); ma.setMonth(ma.getMonth()-1);
+  const ms = ma.getFullYear()+'-'+String(ma.getMonth()+1).padStart(2,'0')+'-'+String(ma.getDate()).padStart(2,'0');
+  document.getElementById('reportStart').value = ms;
   document.getElementById('reportEnd').value = today;
+  document.getElementById('reportStaff').innerHTML = '<option value="">全部员工</option>' + appData.staff.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
+  document.getElementById('reportSearch').value = '';
   loadReport();
 }
 
 async function loadReport() {
   const start = document.getElementById('reportStart').value;
   const end = document.getElementById('reportEnd').value;
+  const filterStaff = document.getElementById('reportStaff').value;
+  const filterCat = document.getElementById('reportCategory').value;
+  const search = document.getElementById('reportSearch').value.trim().toLowerCase();
+
   let records;
   if (currentRole === 'boss') {
     const res = await API.exportReport({ bossPassword: savedBossPwd || '0911', startDate: start, endDate: end });
@@ -966,39 +828,112 @@ async function loadReport() {
   } else {
     records = appData.records.filter(r => r.staffName === currentStaff.name && (!r.date || (r.date >= start && r.date <= end)));
   }
+
+  if (filterStaff) records = records.filter(r => r.staffName === filterStaff);
+  if (filterCat) records = records.filter(r => {
+    const p = appData.projects.find(p => p.name === r.projectName);
+    return p && (p.category||'其他') === filterCat;
+  });
+  if (search) records = records.filter(r =>
+    (r.staffName||'').includes(search) || (r.projectName||'').includes(search) ||
+    (r.note||'').includes(search) || String(r.amount).includes(search) ||
+    (r.type||'').includes(search)
+  );
+
   const totalAmount = records.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
   const totalCommission = records.reduce((s,r) => s + (parseFloat(r.commission)||0), 0);
-  let totalRecharge = 0;
-  let rechargeRecords = [];
-  appData.members.forEach(m => {
-    (m.rechargeHistory || []).forEach(r => {
-      if (r.date >= start && r.date <= end) {
-        totalRecharge += parseFloat(r.amount) || 0;
-        rechargeRecords.push({ name: m.name, amount: r.amount, date: r.date, note: r.note });
-      }
-    });
-  });
-  const memberRecords = records.filter(r => r.type === '会员卡' && r.memberName);
-  const memberConsume = memberRecords.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
+
+  let totalRecharge = 0, rechargeRecords = [];
+  appData.members.forEach(m => { (m.rechargeHistory||[]).forEach(r => { if (r.date >= start && r.date <= end) { totalRecharge += parseFloat(r.amount)||0; rechargeRecords.push({ name: m.name, amount: r.amount, date: r.date, note: r.note }); } }); });
+
   let staffSummary = {};
   records.forEach(r => {
     if (!staffSummary[r.staffName]) staffSummary[r.staffName] = { count:0, amount:0, commission:0 };
-    staffSummary[r.staffName].count++;
-    staffSummary[r.staffName].amount += parseFloat(r.amount)||0;
-    staffSummary[r.staffName].commission += parseFloat(r.commission)||0;
+    staffSummary[r.staffName].count++; staffSummary[r.staffName].amount += parseFloat(r.amount)||0; staffSummary[r.staffName].commission += parseFloat(r.commission)||0;
   });
-  let result = '\n    <div class="stat-grid">\n      <div class="stat-box"><div class="num">' + records.length + '</div><div class="label">总笔数</div></div>\n      <div class="stat-box green"><div class="num">' + totalAmount.toFixed(0) + '</div><div class="label">总金额(元)</div></div>\n      <div class="stat-box orange"><div class="num">' + totalCommission.toFixed(0) + '</div><div class="label">总提成(元)</div></div>\n    </div>\n    <div class="stat-grid">\n      <div class="stat-box purple"><div class="num">' + totalRecharge.toFixed(0) + '</div><div class="label">会员充值(元)</div></div>\n      <div class="stat-box blue"><div class="num">' + memberConsume.toFixed(0) + '</div><div class="label">会员消费(元)</div></div>\n    </div>\n    <div class="section-title">按员工汇总</div>\n    <table>\n      <tr><th>员工</th><th>笔数</th><th>金额</th><th>提成</th></tr>\n      ' + Object.entries(staffSummary).map(([name, s]) => '\n        <tr><td>' + name + '</td><td>' + s.count + '</td><td>¥' + s.amount.toFixed(0) + '</td><td>¥' + s.commission.toFixed(2) + '</td></tr>\n      ').join('') + '\n    </table>\n    ' + (rechargeRecords.length > 0 ? '\n    <div class="section-title">会员充值记录</div>\n    <table>\n      <tr><th>日期</th><th>会员</th><th>金额</th><th>备注</th></tr>\n      ' + rechargeRecords.slice().reverse().map(r => '\n        <tr><td>' + fmtDate(r.date) + '</td><td>' + r.name + '</td><td>¥' + r.amount + '</td><td>' + (r.note||'') + '</td></tr>\n      ').join('') + '\n    </table>' : '') + '\n    <div class="section-title">业绩明细</div>\n    <table>\n      <tr><th>日期</th><th>时间</th><th>员工</th><th>项目</th><th>类型</th><th>金额</th><th>提成</th></tr>\n      ' + records.slice().reverse().map(r => '\n        <tr><td>' + fmtDate(r.date) + '</td><td>' + (r.time||'') + '</td><td>' + r.staffName + '</td><td>' + r.projectName + '</td><td>' + r.type + '</td><td>¥' + r.amount + '</td><td>¥' + r.commission + '</td></tr>\n      ').join('') + '\n    </table>\n  ';
+
+  const todayOnly = (start === end);
+  const exportBtn = todayOnly
+    ? '<button class="btn btn-blue mb-10" onclick="exportDayReport()">📋 导出 ' + start + ' 业绩文本</button>'
+    : '<button class="btn btn-blue mb-10" onclick="exportMonthReport()">📋 导出月度明细</button>';
+
+  let result = '<div class="stat-grid"><div class="stat-box"><div class="num">' + records.length + '</div><div class="label">总笔数</div></div><div class="stat-box green"><div class="num">' + totalAmount.toFixed(0) + '</div><div class="label">总金额(元)</div></div><div class="stat-box orange"><div class="num">' + totalCommission.toFixed(0) + '</div><div class="label">总提成(元)</div></div></div><div class="stat-grid"><div class="stat-box purple"><div class="num">' + totalRecharge.toFixed(0) + '</div><div class="label">会员充值</div></div></div>';
+
+  if (currentRole === 'boss' || currentRole === 'staff') result += exportBtn;
+
+  result += '<div class="section-title">按员工汇总</div><table><tr><th>员工</th><th>笔数</th><th>金额</th><th>提成</th></tr>';
+  result += Object.entries(staffSummary).map(([n,s]) => '<tr><td>' + n + '</td><td>' + s.count + '</td><td>¥' + s.amount.toFixed(0) + '</td><td>¥' + s.commission.toFixed(2) + '</td></tr>').join('');
+  result += '</table><div class="section-title">业绩明细</div><table><tr><th>日期</th><th>时间</th><th>员工</th><th>项目</th><th>类型</th><th>金额</th><th>提成</th></tr>';
+  result += records.slice().reverse().map(r => '<tr><td>' + fmtDate(r.date) + '</td><td>' + (r.time||'') + '</td><td>' + esc(r.staffName) + '</td><td>' + esc(r.projectName) + '</td><td>' + esc(r.type) + '</td><td>¥' + r.amount + '</td><td>¥' + r.commission + '</td></tr>').join('');
+  result += '</table>';
+
   document.getElementById('reportResult').innerHTML = result;
+  window._reportRecords = records;
+  window._reportStaffSummary = staffSummary;
+  window._reportStart = start;
+  window._reportEnd = end;
+  window._reportTotalAmount = totalAmount;
+  window._reportTotalCommission = totalCommission;
 }
 
-// ============ 初始化 ============
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+function exportDayReport() {
+  const records = window._reportRecords || [];
+  const staffSummary = window._reportStaffSummary || {};
+  const date = window._reportStart || todayStr();
+  const totalAmount = window._reportTotalAmount || 0;
+  const totalCommission = window._reportTotalCommission || 0;
+
+  let text = '===== 潘潘美甲美睫工作台 =====\n';
+  text += '单日业绩报表 - ' + date + '\n';
+  text += '生成时间: ' + new Date().toLocaleString() + '\n\n';
+  text += '【汇总】\n';
+  text += '总笔数: ' + records.length + ' | 总金额: ¥' + totalAmount.toFixed(0) + ' | 总提成: ¥' + totalCommission.toFixed(0) + '\n\n';
+  text += '【按员工】\n';
+  Object.entries(staffSummary).forEach(([n,s]) => { text += n + ': ' + s.count + '笔 | 金额¥' + s.amount.toFixed(0) + ' | 提成¥' + s.commission.toFixed(2) + '\n'; });
+  text += '\n【明细】\n';
+  records.forEach(r => { text += r.date + ' ' + (r.time||'') + ' | ' + r.staffName + ' | ' + r.projectName + ' | ' + r.type + ' | ¥' + r.amount + ' | 提成¥' + r.commission + (r.note ? ' | ' + r.note : '') + '\n'; });
+
+  downloadText('业绩报表_' + date + '.txt', text);
 }
 
-document.getElementById('modalOverlay').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
-});
+function exportMonthReport() {
+  const records = window._reportRecords || [];
+  const staffSummary = window._reportStaffSummary || {};
+  const start = window._reportStart || '';
+  const end = window._reportEnd || '';
+  const totalAmount = window._reportTotalAmount || 0;
+  const totalCommission = window._reportTotalCommission || 0;
+
+  let text = '===== 潘潘美甲美睫工作台 =====\n';
+  text += '月度业绩明细 - ' + start + ' 至 ' + end + '\n';
+  text += '生成时间: ' + new Date().toLocaleString() + '\n\n';
+  text += '【汇总】\n';
+  text += '总笔数: ' + records.length + ' | 总金额: ¥' + totalAmount.toFixed(0) + ' | 总提成: ¥' + totalCommission.toFixed(0) + '\n\n';
+  text += '【按员工】\n';
+  Object.entries(staffSummary).forEach(([n,s]) => { text += n + ': ' + s.count + '笔 | 金额¥' + s.amount.toFixed(0) + ' | 提成¥' + s.commission.toFixed(2) + '\n'; });
+  text += '\n【明细】\n';
+  let byDate = {};
+  records.forEach(r => { if (!byDate[r.date]) byDate[r.date] = []; byDate[r.date].push(r); });
+  Object.keys(byDate).sort().forEach(d => {
+    text += '\n--- ' + d + ' ---\n';
+    byDate[d].forEach(r => { text += '  ' + (r.time||'') + ' | ' + r.staffName + ' | ' + r.projectName + ' | ' + r.type + ' | ¥' + r.amount + ' | 提成¥' + r.commission + (r.note ? ' | ' + r.note : '') + '\n'; });
+  });
+
+  downloadText('业绩明细_' + start + '_' + end + '.txt', text);
+}
+
+function downloadText(filename, text) {
+  const blob = new Blob(['\uFEFF' + text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  showToast('✅ 已导出: ' + filename);
+}
+
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(() => {}); }
+document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 </script>
 </body>
 </html>
