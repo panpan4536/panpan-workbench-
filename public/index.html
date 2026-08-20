@@ -209,6 +209,14 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 <button class="btn btn-gray hidden" id="cancelEditBtn" onclick="cancelEdit()">取消编辑</button>
 </div>
 </div>
+<div class="card" id="recordListCard">
+<h2>📋 业绩记录</h2>
+<div class="form-row mb-10">
+<div><label>筛选日期</label><input type="date" id="recordListDate" onchange="renderRecordList()"></div>
+<div><label>筛选员工</label><select id="recordListStaff" onchange="renderRecordList()"><option value="">全部员工</option></select></div>
+</div>
+<div id="recordListBody"></div>
+</div>
 </div>
 
 <div id="page-appointment" class="container hidden">
@@ -509,7 +517,7 @@ async function delRecord(id) {
     if (m) m.balance = (parseFloat(m.balance)||0) + (parseFloat(r.amount)||0);
   }
   appData.records = appData.records.filter(r => r.id !== id);
-  if (await saveData()) { showToast('已删除'); renderHome(); }
+  if (await saveData()) { showToast('已删除'); renderHome(); renderRecordList(); }
 }function renderRecord() {
   document.getElementById('editRecordId').value = '';
   document.getElementById('cancelEditBtn').classList.add('hidden');
@@ -530,6 +538,43 @@ async function delRecord(id) {
   document.getElementById('memberSelectBox').classList.add('hidden');
   document.getElementById('recType').value = '散客';
   if (appData.projects.length > 0) onProjectChange();
+  renderRecordList();
+}
+function renderRecordList() {
+  var card = document.getElementById('recordListCard');
+  if (!card) return;
+  var dateInput = document.getElementById('recordListDate');
+  var staffSel = document.getElementById('recordListStaff');
+  if (!dateInput.value) dateInput.value = todayStr();
+  staffSel.innerHTML = '<option value="">全部员工</option>' + appData.staff.map(function(s) { return '<option value="' + s.name + '">' + esc(s.name) + '</option>'; }).join('');
+  var filterDate = dateInput.value;
+  var filterStaffName = staffSel.value;
+  var recs = appData.records.filter(function(r) { return r.date === filterDate; });
+  if (currentRole === 'staff' && currentStaff) recs = recs.filter(function(r) { return r.staffName === currentStaff.name; });
+  else if (filterStaffName) recs = recs.filter(function(r) { return r.staffName === filterStaffName; });
+  recs = recs.sort(function(a,b) { return (b.time||'').localeCompare(a.time||''); });
+  var body = document.getElementById('recordListBody');
+  if (recs.length === 0) { body.innerHTML = '<div class="empty">' + esc(filterDate) + ' 暂无记录</div>'; return; }
+  var totalAmount = recs.reduce(function(s,r) { return s + (parseFloat(r.amount)||0); }, 0);
+  var totalCommission = recs.reduce(function(s,r) { return s + (parseFloat(r.commission)||0); }, 0);
+  var canEdit = (currentRole === 'boss');
+  var html = '<div class="section-title">共 ' + recs.length + ' 笔 | 实收 \xA5' + totalAmount.toFixed(0) + ' | 提成 \xA5' + totalCommission.toFixed(0) + '</div>';
+  recs.forEach(function(r) {
+    html += '<div class="list-item"><div class="info"><div class="name">' + esc(r.staffName) + ' \xB7 ' + esc(r.projectName) + ' <span style="color:#999;font-size:12px;">' + esc(r.time||'') + '</span></div><div class="detail">' + esc(r.type) + ' | \xA5' + r.amount + ' | \u63D0\u6210\xA5' + r.commission + (r.memberName ? ' | \u4F1A\u5458:' + esc(r.memberName) : '') + (r.note ? ' | ' + esc(r.note) : '') + '</div></div>';
+    if (canEdit) html += '<div class="actions"><button class="btn btn-xs btn-blue" onclick="editRecord(\'' + r.id + '\')">\u270F\uFE0F</button><button class="btn btn-xs btn-red" onclick="delRecordFromList(\'' + r.id + '\')">\u{1F5D1}</button></div>';
+    html += '</div>';
+  });
+  body.innerHTML = html;
+}
+async function delRecordFromList(id) {
+  if (!confirm('\u786E\u5B9A\u5220\u9664\u6B64\u4E1A\u7EE9\u8BB0\u5F55\uFF1F')) return;
+  var r = appData.records.find(function(r) { return r.id === id; });
+  if (r && r.type === '\u4F1A\u5458\u5361' && r.memberId) {
+    var m = appData.members.find(function(m) { return m.id === r.memberId; });
+    if (m) m.balance = (parseFloat(m.balance)||0) + (parseFloat(r.amount)||0);
+  }
+  appData.records = appData.records.filter(function(r) { return r.id !== id; });
+  if (await saveData()) { showToast('\u5DF2\u5220\u9664'); renderRecordList(); }
 }
 function onProjectChange() {
   const opt = document.getElementById('recProject').selectedOptions[0];
@@ -580,8 +625,7 @@ async function submitRecord() {
       if (member.balance < amount) { showToast('会员余额不足'); return; }
       member.balance = parseFloat(member.balance) - amount;
     }
-    if (await saveData()) { showToast('✅ 修改已保存'); cancelEdit(); navTo('home'); }
-  } else {
+    if (await saveData()) { showToast('✅ 修改已保存'); cancelEdit(); navTo('home'); }  } else {
     if (type === '会员卡' && member) {
       if (member.balance < amount) { showToast('会员余额不足（余额¥'+member.balance+'）'); return; }
       member.balance = parseFloat(member.balance) - amount;
@@ -592,7 +636,7 @@ async function submitRecord() {
       createdBy: currentRole === 'staff' ? currentStaff.name : 'boss',
       memberId: memberId || null, memberName: member ? member.name : null
     });
-    if (await saveData()) { showToast('✅ 录入成功'); navTo('home'); }
+    if (await saveData()) { showToast('✅ 录入成功'); renderRecordList(); }
   }
 }
 
