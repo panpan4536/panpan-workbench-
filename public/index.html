@@ -965,8 +965,15 @@ async function loadReport() {
 
   result += '<div class="section-title">按员工汇总</div><table><tr><th>员工</th><th>笔数</th><th>实收</th><th>提成</th><th>补贴</th><th>扣款</th><th>应发</th></tr>';
   result += Object.entries(staffSummary).map(([n,s]) => '<tr><td>' + esc(n) + '</td><td>' + s.count + '</td><td>\xA5' + s.amount.toFixed(0) + '</td><td>\xA5' + s.commission.toFixed(2) + '</td><td>\xA5' + s.subsidy.toFixed(0) + '</td><td>\xA5' + s.deduction.toFixed(0) + '</td><td>\xA5' + (s.commission + s.subsidy - s.deduction).toFixed(2) + '</td></tr>').join('');
-  result += '</table><div class="section-title">业绩明细</div><table><tr><th>日期</th><th>时间</th><th>员工</th><th>项目</th><th>类型</th><th>实收</th><th>提成</th></tr>';
-  result += records.slice().reverse().map(r => '<tr><td>' + fmtDate(r.date) + '</td><td>' + (r.time||'') + '</td><td>' + esc(r.staffName) + '</td><td>' + esc(r.projectName) + '</td><td>' + esc(r.type) + '</td><td>\xA5' + r.amount + '</td><td>\xA5' + r.commission + '</td></tr>').join('');
+  result += '</table><div class="section-title">业绩明细</div><table><tr><th>日期</th><th>时间</th><th>员工</th><th>项目</th><th>类型</th><th>实收</th><th>提成</th><th>操作</th></tr>';
+  var canEditReport = (currentRole === 'boss');
+  result += records.slice().reverse().map(function(r) {
+    var rowHtml = '<tr><td>' + fmtDate(r.date) + '</td><td>' + (r.time||'') + '</td><td>' + esc(r.staffName) + '</td><td>' + esc(r.projectName) + '</td><td>' + esc(r.type) + '</td><td>\xA5' + r.amount + '</td><td>\xA5' + r.commission + '</td><td>';
+    if (canEditReport) rowHtml += '<button class="btn btn-xs btn-blue" onclick="editReportRecord(\'' + r.id + '\')">\u270F\uFE0F</button> <button class="btn btn-xs btn-red" onclick="delReportRecord(\'' + r.id + '\')">\u{1F5D1}</button>';
+    else rowHtml += '-';
+    rowHtml += '</td></tr>';
+    return rowHtml;
+  }).join('');
   result += '</table>';
 
   document.getElementById('reportResult').innerHTML = result;
@@ -1062,6 +1069,70 @@ function buildLedgerText(records, staffSummary, start, end, totalAmount, totalCo
   text += '* \u6F58\u6F58\u7F8E\u7532\u7F8E\u776B \xB7 \u4E1A\u7EE9\u63D0\u6210\u5171\u4EAB\u5DE5\u4F5C\u53F0\u751F\u6210 *\n';
 
   return text;
+}
+
+function editReportRecord(id) {
+  var r = appData.records.find(function(r) { return r.id === id; });
+  if (!r) { showToast('\u8BB0\u5F55\u4E0D\u5B58\u5728'); return; }
+  var staffOpts = appData.staff.map(function(s) { return '<option value="' + s.name + '"' + (s.name === r.staffName ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('');
+  var projOpts = appData.projects.map(function(p) { return '<option value="' + p.name + '"' + (p.name === r.projectName ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('');
+  var typeOpts = ['\u6563\u5BA2','\u56E2\u8D2D','\u4F1A\u5458\u5361'].map(function(t) { return '<option value="' + t + '"' + (t === r.type ? ' selected' : '') + '>' + t + '</option>'; }).join('');
+  showModal(
+    '<h3>\u270F\uFE0F \u7F16\u8F91\u4E1A\u7EE9\u8BB0\u5F55</h3>' +
+    '<label>\u5458\u5DE5</label><select id="editRepStaff">' + staffOpts + '</select>' +
+    '<label>\u9879\u76EE</label><select id="editRepProject">' + projOpts + '</select>' +
+    '<label>\u5BA2\u6237\u7C7B\u578B</label><select id="editRepType">' + typeOpts + '</select>' +
+    '<div class="form-row"><div><label>\u5B9E\u6536(\u5143)</label><input type="number" id="editRepAmount" value="' + r.amount + '"></div>' +
+    '<div><label>\u63D0\u6210(\u5143)</label><input type="number" id="editRepCommission" value="' + r.commission + '"></div></div>' +
+    '<div class="form-row"><div><label>\u65E5\u671F</label><input type="date" id="editRepDate" value="' + r.date + '"></div>' +
+    '<div><label>\u65F6\u95F4</label><input type="time" id="editRepTime" value="' + (r.time||'') + '"></div></div>' +
+    '<label>\u5907\u6CE8</label><input type="text" id="editRepNote" value="' + esc(r.note||'') + '">' +
+    '<button class="btn btn-blue mt-10" onclick="saveReportRecord(\'' + r.id + '\')">\u2705 \u4FDD\u5B58</button>' +
+    '<button class="btn btn-gray mt-10" onclick="closeModal()">\u53D6\u6D88</button>'
+  );
+}
+
+async function saveReportRecord(id) {
+  var r = appData.records.find(function(r) { return r.id === id; });
+  if (!r) return;
+  var oldType = r.type;
+  var oldAmount = parseFloat(r.amount) || 0;
+  var oldMemberId = r.memberId;
+  var newType = document.getElementById('editRepType').value;
+  var newAmount = parseFloat(document.getElementById('editRepAmount').value) || 0;
+  var newCommission = parseFloat(document.getElementById('editRepCommission').value) || 0;
+  if (oldType === '\u4F1A\u5458\u5361' && oldMemberId) {
+    var oldM = appData.members.find(function(m) { return m.id === oldMemberId; });
+    if (oldM) oldM.balance = (parseFloat(oldM.balance)||0) + oldAmount;
+  }
+  r.staffName = document.getElementById('editRepStaff').value;
+  r.projectName = document.getElementById('editRepProject').value;
+  r.type = newType;
+  r.amount = newAmount;
+  r.commission = newCommission;
+  r.date = document.getElementById('editRepDate').value;
+  r.time = document.getElementById('editRepTime').value;
+  r.note = document.getElementById('editRepNote').value.trim();
+  if (newType === '\u4F1A\u5458\u5361' && oldMemberId) {
+    var m = appData.members.find(function(m) { return m.id === oldMemberId; });
+    if (m) {
+      if (m.balance < newAmount) { showToast('\u4F1A\u5458\u4F59\u989D\u4E0D\u8DB3'); return; }
+      m.balance = parseFloat(m.balance) - newAmount;
+    }
+  }
+  if (await saveData()) { showToast('\u2705 \u5DF2\u4FDD\u5B58'); closeModal(); await loadReport(); }
+}
+
+async function delReportRecord(id) {
+  if (!confirm('\u786E\u5B9A\u5220\u9664\u6B64\u660E\u7EC6\u8BB0\u5F55\uFF1F')) return;
+  var r = appData.records.find(function(r) { return r.id === id; });
+  if (!r) return;
+  if (r.type === '\u4F1A\u5458\u5361' && r.memberId) {
+    var m = appData.members.find(function(m) { return m.id === r.memberId; });
+    if (m) m.balance = (parseFloat(m.balance)||0) + (parseFloat(r.amount)||0);
+  }
+  appData.records = appData.records.filter(function(r) { return r.id !== id; });
+  if (await saveData()) { showToast('\u5DF2\u5220\u9664'); await loadReport(); }
 }
 
 function showLedger() {
