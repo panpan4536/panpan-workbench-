@@ -831,61 +831,118 @@ async function delProject(id) {
 }
 
 // ============ 会员管理 ============
+function ensureMemberFields(m) {
+  if (m.principalBalance === undefined) { m.principalBalance = parseFloat(m.balance)||0; m.bonusBalance = 0; m.balance = m.principalBalance; }
+  if (!m.bonusBalance) m.bonusBalance = 0;
+  if (!m.principalBalance) m.principalBalance = 0;
+  if (!m.balance) m.balance = (parseFloat(m.principalBalance)||0) + (parseFloat(m.bonusBalance)||0);
+  if (!m.rechargeHistory) m.rechargeHistory = [];
+  if (!m.createdAt) m.createdAt = m.rechargeHistory.length > 0 ? m.rechargeHistory[0].date : '';
+  if (!m.note) m.note = '';
+}
 function renderMembers() {
-  const list = document.getElementById('memberList'); if (!list) return;
-  if (appData.members.length === 0) { list.innerHTML = '<div class="empty">暂无会员</div>'; return; }
-  list.innerHTML = appData.members.map(m => '<div class="list-item"><div class="info"><div class="name">' + esc(m.name) + ' <span class="tag tag-green">余额¥' + (parseFloat(m.balance)||0).toFixed(2) + '</span></div><div class="detail">' + (m.phone||'无电话') + ' | 卡号:' + (m.cardNo||'无') + ' | 充值' + ((m.rechargeHistory||[]).length) + '次</div></div><div class="actions"><button class="btn btn-xs btn-green" onclick="showRechargeModal(\'' + m.id + '\')">充值</button><button class="btn btn-xs btn-blue" onclick="showEditMemberModal(\'' + m.id + '\')">✏️</button><button class="btn btn-xs btn-red" onclick="delMember(\'' + m.id + '\')">🗑</button></div></div>').join('');
+  var list = document.getElementById('memberList'); if (!list) return;
+  appData.members.forEach(ensureMemberFields);
+  if (appData.members.length === 0) { list.innerHTML = '<div class="empty">\u6682\u65E0\u4F1A\u5458</div>'; return; }
+  var html = '<table style="font-size:12px;"><tr><th>\u4F1A\u5458ID</th><th>\u59D3\u540D</th><th>\u624B\u673A\u53F7</th><th>\u672C\u91D1</th><th>\u8D60\u9001</th><th>\u603B\u4F59\u989D</th><th>\u5F00\u5361\u65F6\u95F4</th><th>\u5907\u6CE8</th><th>\u64CD\u4F5C</th></tr>';
+  appData.members.forEach(function(m) {
+    html += '<tr><td style="font-size:10px;color:#999;">' + esc(String(m.id).substring(0,8)) + '</td><td>' + esc(m.name) + '</td><td>' + esc(m.phone||'-') + '</td><td>\xA5' + (parseFloat(m.principalBalance)||0).toFixed(0) + '</td><td>\xA5' + (parseFloat(m.bonusBalance)||0).toFixed(0) + '</td><td><b>\xA5' + (parseFloat(m.balance)||0).toFixed(0) + '</b></td><td style="font-size:11px;">' + esc(m.createdAt||'-') + '</td><td style="font-size:11px;max-width:60px;word-break:break-all;">' + esc(m.note||'-') + '</td><td style="white-space:nowrap;"><button class="btn btn-xs btn-green" onclick="showRechargeModal(\'' + m.id + '\')">\u5145\u503C</button> <button class="btn btn-xs btn-blue" onclick="showEditMemberModal(\'' + m.id + '\')">\u270F\uFE0F</button> <button class="btn btn-xs btn-red" onclick="delMember(\'' + m.id + '\')">\u{1F5D1}</button></td></tr>';
+  });
+  html += '</table>';
+  list.innerHTML = html;
 }
 function showMemberModal() {
-  showModal('<h3>👤 添加会员</h3><label>会员姓名</label><input type="text" id="newMemName" placeholder="姓名"><label>手机号</label><input type="tel" id="newMemPhone" placeholder="手机号"><label>卡号</label><input type="text" id="newMemCardNo" placeholder="卡号"><label>初始余额(元)</label><input type="number" id="newMemBalance" value="0"><button class="btn btn-purple mt-10" onclick="addMember()">✅ 添加</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>');
+  showModal('<h3>\u{1F464} \u6DFB\u52A0\u4F1A\u5458</h3><label>\u4F1A\u5458\u59D3\u540D</label><input type="text" id="newMemName" placeholder="\u59D3\u540D"><label>\u624B\u673A\u53F7</label><input type="tel" id="newMemPhone" placeholder="\u624B\u673A\u53F7"><label>\u5361\u53F7</label><input type="text" id="newMemCardNo" placeholder="\u5361\u53F7(\u53EF\u9009)"><label>\u672C\u91D1\u4F59\u989D(\u5143)</label><input type="number" id="newMemBalance" value="0"><label>\u5907\u6CE8</label><input type="text" id="newMemNote" placeholder="\u5907\u6CE8"><button class="btn btn-purple mt-10" onclick="addMember()">\u2705 \u6DFB\u52A0</button><button class="btn btn-gray mt-10" onclick="closeModal()">\u53D6\u6D88</button>');
 }
 async function addMember() {
-  const name = document.getElementById('newMemName').value.trim();
-  const phone = document.getElementById('newMemPhone').value.trim();
-  const cardNo = document.getElementById('newMemCardNo').value.trim();
-  const balance = parseFloat(document.getElementById('newMemBalance').value) || 0;
-  if (!name) { showToast('请输入姓名'); return; }
-  const m = { id: genId(), name, phone, cardNo, balance, rechargeHistory: [] };
-  if (balance > 0) m.rechargeHistory.push({ amount: balance, date: todayStr(), note: '初始充值' });
+  var name = document.getElementById('newMemName').value.trim();
+  var phone = document.getElementById('newMemPhone').value.trim();
+  var cardNo = document.getElementById('newMemCardNo').value.trim();
+  var balance = parseFloat(document.getElementById('newMemBalance').value) || 0;
+  var note = document.getElementById('newMemNote').value.trim();
+  if (!name) { showToast('\u8BF7\u8F93\u5165\u59D3\u540D'); return; }
+  var m = { id: genId(), name: name, phone: phone, cardNo: cardNo, principalBalance: balance, bonusBalance: 0, balance: balance, createdAt: todayStr(), note: note, rechargeHistory: [] };
+  if (balance > 0) m.rechargeHistory.push({ amount: balance, bonus: 0, date: todayStr(), note: '\u521D\u59CB\u5145\u503C', package: '' });
   appData.members.push(m);
-  if (await saveData()) { showToast('✅ 添加成功'); closeModal(); renderMembers(); }
+  if (await saveData()) { showToast('\u2705 \u6DFB\u52A0\u6210\u529F'); closeModal(); renderMembers(); }
 }
 function showEditMemberModal(mid) {
-  const m = appData.members.find(m => m.id === mid); if (!m) return;
-  showModal('<h3>👤 编辑会员</h3><label>姓名</label><input type="text" id="editMemName" value="' + esc(m.name) + '"><label>手机号</label><input type="tel" id="editMemPhone" value="' + (m.phone||'') + '"><label>卡号</label><input type="text" id="editMemCardNo" value="' + (m.cardNo||'') + '"><label>余额(元)</label><input type="number" id="editMemBalance" value="' + (m.balance||0) + '" readonly><button class="btn btn-blue mt-10" onclick="saveEditMember(\'' + m.id + '\')">✅ 保存</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>');
+  var m = appData.members.find(function(m) { return m.id === mid; }); if (!m) return;
+  ensureMemberFields(m);
+  showModal('<h3>\u{1F464} \u7F16\u8F91\u4F1A\u5458</h3><label>\u59D3\u540D</label><input type="text" id="editMemName" value="' + esc(m.name) + '"><label>\u624B\u673A\u53F7</label><input type="tel" id="editMemPhone" value="' + (m.phone||'') + '"><label>\u5361\u53F7</label><input type="text" id="editMemCardNo" value="' + (m.cardNo||'') + '"><div class="form-row"><div><label>\u672C\u91D1\u4F59\u989D</label><input type="number" id="editMemPrincipal" value="' + (parseFloat(m.principalBalance)||0) + '"></div><div><label>\u8D60\u9001\u4F59\u989D</label><input type="number" id="editMemBonus" value="' + (parseFloat(m.bonusBalance)||0) + '"></div></div><label>\u5907\u6CE8</label><input type="text" id="editMemNote" value="' + esc(m.note||'') + '"><button class="btn btn-blue mt-10" onclick="saveEditMember(\'' + m.id + '\')">\u2705 \u4FDD\u5B58</button><button class="btn btn-gray mt-10" onclick="closeModal()">\u53D6\u6D88</button>');
 }
 async function saveEditMember(mid) {
-  const m = appData.members.find(m => m.id === mid); if (!m) return;
+  var m = appData.members.find(function(m) { return m.id === mid; }); if (!m) return;
   m.name = document.getElementById('editMemName').value.trim();
   m.phone = document.getElementById('editMemPhone').value.trim();
   m.cardNo = document.getElementById('editMemCardNo').value.trim();
-  if (!m.name) { showToast('请输入姓名'); return; }
-  if (await saveData()) { showToast('✅ 已保存'); closeModal(); renderMembers(); }
+  m.principalBalance = parseFloat(document.getElementById('editMemPrincipal').value) || 0;
+  m.bonusBalance = parseFloat(document.getElementById('editMemBonus').value) || 0;
+  m.balance = m.principalBalance + m.bonusBalance;
+  m.note = document.getElementById('editMemNote').value.trim();
+  if (!m.name) { showToast('\u8BF7\u8F93\u5165\u59D3\u540D'); return; }
+  if (await saveData()) { showToast('\u2705 \u5DF2\u4FDD\u5B58'); closeModal(); renderMembers(); }
 }
 function showRechargeModal(mid) {
-  const m = appData.members.find(m => m.id === mid); if (!m) return;
-  let rh = '';
+  var m = appData.members.find(function(m) { return m.id === mid; }); if (!m) return;
+  ensureMemberFields(m);
+  var rh = '';
   if (m.rechargeHistory && m.rechargeHistory.length > 0) {
-    rh = '<div class="section-title">充值记录</div><table><tr><th>日期</th><th>金额</th><th>备注</th></tr>';
-    m.rechargeHistory.slice().reverse().forEach(r => { rh += '<tr><td>' + fmtDate(r.date) + '</td><td>¥' + r.amount + '</td><td>' + (r.note||'') + '</td></tr>'; });
+    rh = '<div class="section-title">\u5145\u503C\u8BB0\u5F55</div><table><tr><th>\u65E5\u671F</th><th>\u5957\u9910</th><th>\u672C\u91D1</th><th>\u8D60\u9001</th><th>\u5907\u6CE8</th></tr>';
+    m.rechargeHistory.slice().reverse().forEach(function(r) { rh += '<tr><td>' + fmtDate(r.date) + '</td><td>' + (r.package||'-') + '</td><td>\xA5' + (r.amount||0) + '</td><td>\xA5' + (r.bonus||0) + '</td><td>' + esc(r.note||'') + '</td></tr>'; });
     rh += '</table>';
   }
-  showModal('<h3>💰 充值 - ' + esc(m.name) + '</h3><p>余额: <span class="text-green" style="font-size:18px;font-weight:bold">¥' + (m.balance||0) + '</span></p><label>金额(元)</label><input type="number" id="rechargeAmount"><label>备注</label><input type="text" id="rechargeNote" placeholder="微信充值"><button class="btn btn-green mt-10" onclick="doRecharge(\'' + m.id + '\')">✅ 确认</button><button class="btn btn-gray mt-10" onclick="closeModal()">取消</button>' + rh);
+  showModal(
+    '<h3>\u{1F4B0} \u4F1A\u5458\u5145\u503C</h3>' +
+    '<label>\u9009\u62E9\u4F1A\u5458</label><input type="text" value="' + esc(m.name) + ' (\u672C\u91D1\xA5' + (parseFloat(m.principalBalance)||0).toFixed(0) + ' \u8D60\u9001\xA5' + (parseFloat(m.bonusBalance)||0).toFixed(0) + ' \u603B\xA5' + (parseFloat(m.balance)||0).toFixed(0) + ')" readonly>' +
+    '<label>\u5145\u503C\u5957\u9910</label><select id="rechargePackage" onchange="onPackageChange()"><option value="" data-pay="0" data-bonus="0">\u81EA\u5B9A\u4E49\u91D1\u989D</option><option value="\u5145300\u900850" data-pay="300" data-bonus="50">\u5145\u0033\u0030\u0030\u900850</option><option value="\u5145\u0035\u0030\u0030\u9008100" data-pay="500" data-bonus="100">\u5145\u0035\u0030\u0030\u9008100</option><option value="\u5145\u0031\u0030\u0030\u0030\u9008300" data-pay="1000" data-bonus="300">\u5145\u0031\u0030\u0030\u0030\u9008300</option><option value="\u5145\u0032\u0030\u0030\u0030\u9008800" data-pay="2000" data-bonus="800">\u5145\u0032\u0030\u0030\u0030\u9008800</option></select>' +
+    '<div class="form-row"><div><label>\u5BA2\u6237\u5B9E\u4ED8(\u672C\u91D1)</label><input type="number" id="rechargeAmount" value="0" oninput="updateRechargePreview()"></div><div><label>\u8D60\u9001\u91D1\u989D</label><input type="number" id="rechargeBonus" value="0" oninput="updateRechargePreview()"></div></div>' +
+    '<div id="rechargePreview" style="background:var(--pink-light);padding:10px;border-radius:8px;margin-bottom:10px;font-size:14px;"></div>' +
+    '<label>\u5907\u6CE8</label><input type="text" id="rechargeNote" placeholder="\u5FAE\u4FE1\u5145\u503C">' +
+    '<button class="btn btn-green mt-10" onclick="doRecharge(\'' + m.id + '\')">\u2705 \u786E\u8BA4\u5145\u503C</button><button class="btn btn-gray mt-10" onclick="closeModal()">\u53D6\u6D88</button>' + rh
+  );
+  updateRechargePreview();
+}
+function onPackageChange() {
+  var sel = document.getElementById('rechargePackage');
+  var opt = sel.selectedOptions[0];
+  if (opt && opt.value) {
+    document.getElementById('rechargeAmount').value = opt.getAttribute('data-pay') || 0;
+    document.getElementById('rechargeBonus').value = opt.getAttribute('data-bonus') || 0;
+  }
+  updateRechargePreview();
+}
+function updateRechargePreview() {
+  var pay = parseFloat(document.getElementById('rechargeAmount').value) || 0;
+  var bonus = parseFloat(document.getElementById('rechargeBonus').value) || 0;
+  var pkg = document.getElementById('rechargePackage').value;
+  var html = '';
+  if (pkg) html += '\u5957\u9910\uFF1A' + esc(pkg) + ' \u2502 ';
+  html += '\u5BA2\u6237\u5B9E\u4ED8 <b style="color:var(--pink-dark)">\xA5' + pay.toFixed(0) + '</b>';
+  if (bonus > 0) html += '\uFF0C\u8D60\u9001 <b style="color:var(--green)">\xA5' + bonus.toFixed(0) + '</b>';
+  html += '\uFF0C\u5408\u8BA1\u5165\u8D26 <b style="color:var(--blue)">\xA5' + (pay + bonus).toFixed(0) + '</b>';
+  document.getElementById('rechargePreview').innerHTML = html;
 }
 async function doRecharge(mid) {
-  const m = appData.members.find(m => m.id === mid); if (!m) return;
-  const amount = parseFloat(document.getElementById('rechargeAmount').value) || 0;
-  if (amount <= 0) { showToast('请输入金额'); return; }
-  m.balance = (parseFloat(m.balance)||0) + amount;
+  var m = appData.members.find(function(m) { return m.id === mid; }); if (!m) return;
+  ensureMemberFields(m);
+  var amount = parseFloat(document.getElementById('rechargeAmount').value) || 0;
+  var bonus = parseFloat(document.getElementById('rechargeBonus').value) || 0;
+  var pkg = document.getElementById('rechargePackage').value;
+  var note = document.getElementById('rechargeNote').value.trim();
+  if (amount <= 0 && bonus <= 0) { showToast('\u8BF7\u8F93\u5165\u91D1\u989D\u6216\u9009\u62E9\u5957\u9910'); return; }
+  m.principalBalance = (parseFloat(m.principalBalance)||0) + amount;
+  m.bonusBalance = (parseFloat(m.bonusBalance)||0) + bonus;
+  m.balance = m.principalBalance + m.bonusBalance;
   if (!m.rechargeHistory) m.rechargeHistory = [];
-  m.rechargeHistory.push({ amount, date: todayStr(), note: document.getElementById('rechargeNote').value.trim() });
-  if (await saveData()) { showToast('✅ 充值成功'); closeModal(); renderMembers(); }
+  m.rechargeHistory.push({ amount: amount, bonus: bonus, date: todayStr(), note: note || pkg || '\u5145\u503C', package: pkg });
+  if (await saveData()) { showToast('\u2705 \u5145\u503C\u6210\u529F\uFF01\u672C\u91D1+\xA5' + amount + ' \u8D60\u9001+\xA5' + bonus + ' \u603B\xA5' + m.balance); closeModal(); renderMembers(); }
 }
 async function delMember(id) {
-  const m = appData.members.find(m => m.id === id);
-  if (!m || !confirm('删除「' + m.name + '」？余额¥' + m.balance + '将清零。')) return;
-  appData.members = appData.members.filter(m => m.id !== id);
-  if (await saveData()) { showToast('已删除'); renderMembers(); }
+  var m = appData.members.find(function(m) { return m.id === id; });
+  if (!m || !confirm('\u5220\u9664\u300C' + m.name + '\u300D\uFF1F\u4F59\u989D\xA5' + (m.balance||0) + '\u5C06\u6E05\u96F6\u3002')) return;
+  appData.members = appData.members.filter(function(m) { return m.id !== id; });
+  if (await saveData()) { showToast('\u5DF2\u5220\u9664'); renderMembers(); }
 }
 
 // ============ 对账 ============
