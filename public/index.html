@@ -732,9 +732,12 @@ function renderStaff() {
     list.innerHTML = appData.staff.map(s => {
       const recs = appData.records.filter(r => r.staffName === s.name);
       const total = recs.reduce((sum,r) => sum + (parseFloat(r.commission)||0), 0);
+      const advances = s.advances || [];
+      const totalAdvance = advances.reduce((sum,a) => sum + (parseFloat(a.amount)||0), 0);
+      const remaining = total - totalAdvance;
       let hc = false;
       if (s.commissionRates) { ['散客','团购','会员卡'].forEach(t => { if (s.commissionRates[t] !== null && s.commissionRates[t] !== undefined) hc = true; }); }
-      return '<div class="list-item"><div class="info"><div class="name">' + esc(s.name) + ' ' + (hc ? '<span class="tag tag-custom">自定义比例</span>' : '<span class="tag tag-default">默认比例</span>') + '</div><div class="detail">' + recs.length + '笔 | 总提成¥' + total.toFixed(2) + '</div></div><div class="actions"><button class="btn btn-xs btn-orange" onclick="showStaffRateModal(\'' + s.id + '\')">提成</button><button class="btn btn-xs btn-red" onclick="delStaff(\'' + s.id + '\')">🗑</button></div></div>';
+      return '<div class="list-item"><div class="info"><div class="name">' + esc(s.name) + ' ' + (hc ? '<span class="tag tag-custom">自定义比例</span>' : '<span class="tag tag-default">默认比例</span>') + '</div><div class="detail">' + recs.length + '笔 | 总提成\xA5' + total.toFixed(2) + ' | 预支\xA5' + totalAdvance.toFixed(2) + ' | 未结\xA5' + remaining.toFixed(2) + '</div></div><div class="actions"><button class="btn btn-xs btn-blue" onclick="showStaffRecords(\'' + s.id + '\')">业绩</button><button class="btn btn-xs btn-orange" onclick="showStaffRateModal(\'' + s.id + '\')">提成</button><button class="btn btn-xs btn-green" onclick="showAdvanceModal(\'' + s.id + '\')">预支</button><button class="btn btn-xs btn-red" onclick="delStaff(\'' + s.id + '\')">\u{1F5D1}</button></div></div>';
     }).join('');
   }
   document.getElementById('rulesList').innerHTML = Object.entries(appData.rules).map(([t,r]) => '<div class="list-item"><div class="info"><div class="name">' + t + '</div></div><div class="text-pink" style="font-size:18px;font-weight:bold">' + r + '%</div></div>').join('');
@@ -772,6 +775,137 @@ async function saveStaffRates(sid) {
   if (!s.commissionRates) s.commissionRates = { '散客':null, '团购':null, '会员卡':null };
   ['散客','团购','会员卡'].forEach(t => { const el = document.getElementById('staffRate_'+t); const v = el.value.trim(); s.commissionRates[t] = v==='' ? null : (parseFloat(v)||0); });
   if (await saveData()) { showToast('✅ 已保存'); closeModal(); renderStaff(); }
+}
+
+function showStaffRecords(sid) {
+  var s = appData.staff.find(function(s) { return s.id === sid; }); if (!s) return;
+  var recs = appData.records.filter(function(r) { return r.staffName === s.name; });
+  recs = recs.sort(function(a,b) { return (b.date + (b.time||'')).localeCompare(a.date + (a.time||'')); });
+  var total = recs.reduce(function(sum,r) { return sum + (parseFloat(r.commission)||0); }, 0);
+  var totalAmount = recs.reduce(function(sum,r) { return sum + (parseFloat(r.amount)||0); }, 0);
+  var advances = s.advances || [];
+  var totalAdvance = advances.reduce(function(sum,a) { return sum + (parseFloat(a.amount)||0); }, 0);
+  var remaining = total - totalAdvance;
+
+  var html = '<div style="text-align:center;margin-bottom:12px;">';
+  html += '<span style="display:inline-block;margin:0 8px;"><b style="color:var(--pink-dark);font-size:16px;">' + recs.length + '</b> 笔</span>';
+  html += '<span style="display:inline-block;margin:0 8px;">实收 <b style="color:var(--pink-dark);">\xA5' + totalAmount.toFixed(0) + '</b></span>';
+  html += '<span style="display:inline-block;margin:0 8px;">提成 <b style="color:var(--green);">\xA5' + total.toFixed(2) + '</b></span>';
+  html += '<span style="display:inline-block;margin:0 8px;">预支 <b style="color:var(--orange);">\xA5' + totalAdvance.toFixed(2) + '</b></span>';
+  html += '<span style="display:inline-block;margin:0 8px;">未结 <b style="color:var(--blue);">\xA5' + remaining.toFixed(2) + '</b></span>';
+  html += '</div>';
+
+  if (recs.length === 0) { html += '<div class="empty">暂无业绩记录</div>'; }
+  else {
+    html += '<table style="font-size:12px;"><tr><th>日期</th><th>时间</th><th>项目</th><th>类型</th><th>实收</th><th>提成</th><th>操作</th></tr>';
+    recs.forEach(function(r) {
+      html += '<tr><td>' + fmtDate(r.date) + '</td><td>' + (r.time||'') + '</td><td>' + esc(r.projectName) + '</td><td>' + esc(r.type) + '</td><td>\xA5' + r.amount + '</td><td>\xA5' + r.commission + '</td><td><button class="btn btn-xs btn-blue" onclick="editStaffRecord(\'' + r.id + '\',\'' + sid + '\')">\u270F\uFE0F</button> <button class="btn btn-xs btn-red" onclick="delStaffRecord(\'' + r.id + '\',\'' + sid + '\')">\u{1F5D1}</button></td></tr>';
+    });
+    html += '</table>';
+  }
+
+  if (advances.length > 0) {
+    html += '<div class="section-title">预支提成记录</div><table style="font-size:12px;"><tr><th>日期</th><th>金额</th><th>备注</th></tr>';
+    advances.slice().reverse().forEach(function(a) { html += '<tr><td>' + fmtDate(a.date) + '</td><td>\xA5' + a.amount + '</td><td>' + esc(a.note||'-') + '</td></tr>'; });
+    html += '</table>';
+  }
+
+  showModal('<h3>\u{1F4CB} ' + esc(s.name) + ' \u4E1A\u7EE9\u8BB0\u5F55</h3>' + html + '<button class="btn btn-gray mt-10" onclick="closeModal()">\u5173\u95ED</button>');
+}
+
+function editStaffRecord(rid, sid) {
+  var r = appData.records.find(function(r) { return r.id === rid; });
+  if (!r) { showToast('\u8BB0\u5F55\u4E0D\u5B58\u5728'); return; }
+  var projOpts = appData.projects.map(function(p) { return '<option value="' + p.name + '"' + (p.name === r.projectName ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('');
+  var typeOpts = ['\u6563\u5BA2','\u56E2\u8D2D','\u4F1A\u5458\u5361'].map(function(t) { return '<option value="' + t + '"' + (t === r.type ? ' selected' : '') + '>' + t + '</option>'; }).join('');
+  showModal(
+    '<h3>\u270F\uFE0F \u7F16\u8F91\u4E1A\u7EE9</h3>' +
+    '<label>\u5458\u5DE5</label><input type="text" value="' + esc(r.staffName) + '" readonly>' +
+    '<label>\u9879\u76EE</label><select id="editSrProject">' + projOpts + '</select>' +
+    '<label>\u5BA2\u6237\u7C7B\u578B</label><select id="editSrType">' + typeOpts + '</select>' +
+    '<div class="form-row"><div><label>\u5B9E\u6536(\u5143)</label><input type="number" id="editSrAmount" value="' + r.amount + '"></div>' +
+    '<div><label>\u63D0\u6210(\u5143)</label><input type="number" id="editSrCommission" value="' + r.commission + '"></div></div>' +
+    '<div class="form-row"><div><label>\u65E5\u671F</label><input type="date" id="editSrDate" value="' + r.date + '"></div>' +
+    '<div><label>\u65F6\u95F4</label><input type="time" id="editSrTime" value="' + (r.time||'') + '"></div></div>' +
+    '<label>\u5907\u6CE8</label><input type="text" id="editSrNote" value="' + esc(r.note||'') + '">' +
+    '<button class="btn btn-blue mt-10" onclick="saveStaffRecord(\'' + rid + '\',\'' + sid + '\')">\u2705 \u4FDD\u5B58</button>' +
+    '<button class="btn btn-gray mt-10" onclick="showStaffRecords(\'' + sid + '\')">\u8FD4\u56DE</button>'
+  );
+}
+
+async function saveStaffRecord(rid, sid) {
+  var r = appData.records.find(function(r) { return r.id === rid; }); if (!r) return;
+  var oldType = r.type, oldAmount = parseFloat(r.amount)||0, oldMemberId = r.memberId;
+  var newType = document.getElementById('editSrType').value;
+  var newAmount = parseFloat(document.getElementById('editSrAmount').value) || 0;
+  if (oldType === '\u4F1A\u5458\u5361' && oldMemberId) {
+    var oldM = appData.members.find(function(m) { return m.id === oldMemberId; });
+    if (oldM) oldM.balance = (parseFloat(oldM.balance)||0) + oldAmount;
+  }
+  r.projectName = document.getElementById('editSrProject').value;
+  r.type = newType;
+  r.amount = newAmount;
+  r.commission = parseFloat(document.getElementById('editSrCommission').value) || 0;
+  r.date = document.getElementById('editSrDate').value;
+  r.time = document.getElementById('editSrTime').value;
+  r.note = document.getElementById('editSrNote').value.trim();
+  if (newType === '\u4F1A\u5458\u5361' && oldMemberId) {
+    var m = appData.members.find(function(m) { return m.id === oldMemberId; });
+    if (m) {
+      if (m.balance < newAmount) { showToast('\u4F1A\u5458\u4F59\u989D\u4E0D\u8DB3'); return; }
+      m.balance = parseFloat(m.balance) - newAmount;
+    }
+  }
+  if (await saveData()) { showToast('\u2705 \u5DF2\u4FDD\u5B58'); showStaffRecords(sid); renderStaff(); }
+}
+
+async function delStaffRecord(rid, sid) {
+  if (!confirm('\u786E\u5B9A\u5220\u9664\u6B64\u8BB0\u5F55\uFF1F')) return;
+  var r = appData.records.find(function(r) { return r.id === rid; }); if (!r) return;
+  if (r.type === '\u4F1A\u5458\u5361' && r.memberId) {
+    var m = appData.members.find(function(m) { return m.id === r.memberId; });
+    if (m) m.balance = (parseFloat(m.balance)||0) + (parseFloat(r.amount)||0);
+  }
+  appData.records = appData.records.filter(function(r) { return r.id !== rid; });
+  if (await saveData()) { showToast('\u5DF2\u5220\u9664'); showStaffRecords(sid); renderStaff(); }
+}
+
+function showAdvanceModal(sid) {
+  var s = appData.staff.find(function(s) { return s.id === sid; }); if (!s) return;
+  if (!s.advances) s.advances = [];
+  var recs = appData.records.filter(function(r) { return r.staffName === s.name; });
+  var totalCommission = recs.reduce(function(sum,r) { return sum + (parseFloat(r.commission)||0); }, 0);
+  var totalAdvance = s.advances.reduce(function(sum,a) { return sum + (parseFloat(a.amount)||0); }, 0);
+  var remaining = totalCommission - totalAdvance;
+  var ah = '';
+  if (s.advances.length > 0) {
+    ah = '<div class="section-title">\u9884\u652F\u8BB0\u5F55</div><table style="font-size:12px;"><tr><th>\u65E5\u671F</th><th>\u91D1\u989D</th><th>\u5907\u6CE8</th></tr>';
+    s.advances.slice().reverse().forEach(function(a) { ah += '<tr><td>' + fmtDate(a.date) + '</td><td>\xA5' + a.amount + '</td><td>' + esc(a.note||'-') + '</td></tr>'; });
+    ah += '</table>';
+  }
+  showModal(
+    '<h3>\u{1F4B8} ' + esc(s.name) + ' \u9884\u652F\u63D0\u6210</h3>' +
+    '<div style="background:var(--pink-light);padding:10px;border-radius:8px;margin-bottom:12px;text-align:center;">' +
+    '<div style="font-size:12px;color:#666;">\u603B\u63D0\u6210 \xA5' + totalCommission.toFixed(2) + ' \u2502 \u5DF2\u9884\u652F \xA5' + totalAdvance.toFixed(2) + '</div>' +
+    '<div style="font-size:18px;font-weight:bold;color:' + (remaining >= 0 ? 'var(--green)' : 'var(--red)') + '">\u672A\u7ED3\u4F59\u989D \xA5' + remaining.toFixed(2) + '</div>' +
+    '</div>' +
+    '<label>\u9884\u652F\u91D1\u989D(\u5143)</label><input type="number" id="advanceAmount" placeholder="0">' +
+    '<label>\u65E5\u671F</label><input type="date" id="advanceDate" value="' + todayStr() + '">' +
+    '<label>\u5907\u6CE8</label><input type="text" id="advanceNote" placeholder="\u5982\uFF1A\u5FAE\u4FE1\u9884\u652F">' +
+    '<button class="btn btn-green mt-10" onclick="doAdvance(\'' + sid + '\')">\u2705 \u786E\u8BA4\u9884\u652F</button>' +
+    '<button class="btn btn-gray mt-10" onclick="closeModal()">\u5173\u95ED</button>' + ah
+  );
+}
+
+async function doAdvance(sid) {
+  var s = appData.staff.find(function(s) { return s.id === sid; }); if (!s) return;
+  if (!s.advances) s.advances = [];
+  var amount = parseFloat(document.getElementById('advanceAmount').value) || 0;
+  if (amount <= 0) { showToast('\u8BF7\u8F93\u5165\u91D1\u989D'); return; }
+  var date = document.getElementById('advanceDate').value || todayStr();
+  var note = document.getElementById('advanceNote').value.trim();
+  s.advances.push({ amount: amount, date: date, note: note });
+  if (await saveData()) { showToast('\u2705 \u9884\u652F\u6210\u529F\uFF01\xA5' + amount); closeModal(); renderStaff(); }
 }
 
 function showRulesModal() {
