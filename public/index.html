@@ -244,6 +244,10 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 <div id="page-staff" class="container hidden">
 <div class="card">
 <h2>👥 员工管理</h2>
+<div class="form-row mb-10">
+<div><label>统计月份</label><input type="month" id="staffMonth" onchange="renderStaff()"></div>
+<div style="display:flex;align-items:flex-end;"><button class="btn btn-blue" style="width:auto;white-space:nowrap;" onclick="showMonthlySummary()">📊 月度汇总</button></div>
+</div>
 <button class="btn mb-10" onclick="showStaffModal()">➕ 添加员工</button>
 <div id="staffList"></div>
 </div>
@@ -727,21 +731,80 @@ async function doTransferAppt(id) {
 // ============ 员工管理 ============
 function renderStaff() {
   const list = document.getElementById('staffList');
+  const monthInput = document.getElementById('staffMonth');
+  if (monthInput && !monthInput.value) monthInput.value = monthStr();
+  const selMonth = (monthInput && monthInput.value) ? monthInput.value : monthStr();
   if (appData.staff.length === 0) { list.innerHTML = '<div class="empty">暂无员工，请添加</div>'; }
   else {
     list.innerHTML = appData.staff.map(s => {
-      const recs = appData.records.filter(r => r.staffName === s.name);
-      const total = recs.reduce((sum,r) => sum + (parseFloat(r.commission)||0), 0);
-      const advances = s.advances || [];
-      const totalAdvance = advances.reduce((sum,a) => sum + (parseFloat(a.amount)||0), 0);
-      const remaining = total - totalAdvance;
+      const recs = appData.records.filter(r => r.staffName === s.name && r.date && r.date.startsWith(selMonth));
+      const monthAmount = recs.reduce((sum,r) => sum + (parseFloat(r.amount)||0), 0);
+      const monthCommission = recs.reduce((sum,r) => sum + (parseFloat(r.commission)||0), 0);
+      const monthAdvances = (s.advances||[]).filter(a => a.date && a.date.startsWith(selMonth));
+      const monthAdvance = monthAdvances.reduce((sum,a) => sum + (parseFloat(a.amount)||0), 0);
+      const remaining = monthCommission - monthAdvance;
       let hc = false;
       if (s.commissionRates) { ['散客','团购','会员卡'].forEach(t => { if (s.commissionRates[t] !== null && s.commissionRates[t] !== undefined) hc = true; }); }
-      return '<div class="list-item"><div class="info"><div class="name">' + esc(s.name) + ' ' + (hc ? '<span class="tag tag-custom">自定义比例</span>' : '<span class="tag tag-default">默认比例</span>') + '</div><div class="detail">' + recs.length + '笔 | 总提成\xA5' + total.toFixed(2) + ' | 预支\xA5' + totalAdvance.toFixed(2) + ' | 未结\xA5' + remaining.toFixed(2) + '</div></div><div class="actions"><button class="btn btn-xs btn-blue" onclick="showStaffRecords(\'' + s.id + '\')">业绩</button><button class="btn btn-xs btn-orange" onclick="showStaffRateModal(\'' + s.id + '\')">提成</button><button class="btn btn-xs btn-green" onclick="showAdvanceModal(\'' + s.id + '\')">预支</button><button class="btn btn-xs btn-red" onclick="delStaff(\'' + s.id + '\')">\u{1F5D1}</button></div></div>';
+      return '<div class="list-item"><div class="info"><div class="name">' + esc(s.name) + ' ' + (hc ? '<span class="tag tag-custom">自定义比例</span>' : '<span class="tag tag-default">默认比例</span>') + '</div><div class="detail"><b>' + selMonth + '</b><br>' + recs.length + '笔 | 业绩\xA5' + monthAmount.toFixed(0) + ' | 提成\xA5' + monthCommission.toFixed(2) + ' | 预支\xA5' + monthAdvance.toFixed(2) + ' | 未结\xA5' + remaining.toFixed(2) + '</div></div><div class="actions"><button class="btn btn-xs btn-blue" onclick="showStaffRecords(\'' + s.id + '\')">业绩</button><button class="btn btn-xs btn-orange" onclick="showStaffRateModal(\'' + s.id + '\')">提成</button><button class="btn btn-xs btn-green" onclick="showAdvanceModal(\'' + s.id + '\')">预支</button><button class="btn btn-xs btn-red" onclick="delStaff(\'' + s.id + '\')">\u{1F5D1}</button></div></div>';
     }).join('');
   }
   document.getElementById('rulesList').innerHTML = Object.entries(appData.rules).map(([t,r]) => '<div class="list-item"><div class="info"><div class="name">' + t + '</div></div><div class="text-pink" style="font-size:18px;font-weight:bold">' + r + '%</div></div>').join('');
   renderMembers();
+}
+
+function getStaffMonth() {
+  var mi = document.getElementById('staffMonth');
+  return (mi && mi.value) ? mi.value : monthStr();
+}
+
+function showMonthlySummary() {
+  var selMonth = getStaffMonth();
+  var monthSet = {};
+  appData.records.forEach(function(r) { if (r.date) monthSet[r.date.substring(0,7)] = true; });
+  appData.staff.forEach(function(s) { (s.advances||[]).forEach(function(a) { if (a.date) monthSet[a.date.substring(0,7)] = true; }); });
+  var months = Object.keys(monthSet).sort().reverse();
+  if (months.indexOf(selMonth) === -1) months.unshift(selMonth);
+
+  var html = '';
+
+  html += '<div class="section-title">当月明细（' + selMonth + '）</div>';
+  var monthRecs = appData.records.filter(function(r) { return r.date && r.date.startsWith(selMonth); });
+  var hasAny = false;
+  html += '<table style="font-size:12px;"><tr><th>员工</th><th>笔数</th><th>业绩</th><th>提成</th><th>预支</th><th>未结</th></tr>';
+  appData.staff.forEach(function(s) {
+    var recs = monthRecs.filter(function(r) { return r.staffName === s.name; });
+    var amt = recs.reduce(function(sum,r) { return sum + (parseFloat(r.amount)||0); }, 0);
+    var com = recs.reduce(function(sum,r) { return sum + (parseFloat(r.commission)||0); }, 0);
+    var adv = (s.advances||[]).filter(function(a) { return a.date && a.date.startsWith(selMonth); }).reduce(function(sum,a) { return sum + (parseFloat(a.amount)||0); }, 0);
+    if (recs.length > 0 || adv > 0) { hasAny = true;
+      html += '<tr><td>' + esc(s.name) + '</td><td>' + recs.length + '</td><td>\xA5' + amt.toFixed(0) + '</td><td>\xA5' + com.toFixed(2) + '</td><td>\xA5' + adv.toFixed(2) + '</td><td style="color:' + ((com-adv)>=0?'var(--green)':'var(--red)') + ';">\xA5' + (com-adv).toFixed(2) + '</td></tr>';
+    }
+  });
+  if (!hasAny) html += '<tr><td colspan="6" style="text-align:center;color:#999;">当月暂无数据</td></tr>';
+  var mTotalAmt = monthRecs.reduce(function(sum,r) { return sum + (parseFloat(r.amount)||0); }, 0);
+  var mTotalCom = monthRecs.reduce(function(sum,r) { return sum + (parseFloat(r.commission)||0); }, 0);
+  var mTotalAdv = 0;
+  appData.staff.forEach(function(s) { (s.advances||[]).forEach(function(a) { if (a.date && a.date.startsWith(selMonth)) mTotalAdv += parseFloat(a.amount)||0; }); });
+  html += '<tr style="background:var(--pink-light);font-weight:bold;"><td>合计</td><td>' + monthRecs.length + '</td><td>\xA5' + mTotalAmt.toFixed(0) + '</td><td>\xA5' + mTotalCom.toFixed(2) + '</td><td>\xA5' + mTotalAdv.toFixed(2) + '</td><td>\xA5' + (mTotalCom - mTotalAdv).toFixed(2) + '</td></tr>';
+  html += '</table>';
+
+  html += '<div class="section-title">每月汇总</div>';
+  html += '<table style="font-size:12px;"><tr><th>月份</th><th>总业绩</th><th>总提成</th><th>总预支</th><th>未结金额</th></tr>';
+  var grandAmt = 0, grandCom = 0, grandAdv = 0;
+  months.forEach(function(m) {
+    var recs = appData.records.filter(function(r) { return r.date && r.date.startsWith(m); });
+    var amt = recs.reduce(function(sum,r) { return sum + (parseFloat(r.amount)||0); }, 0);
+    var com = recs.reduce(function(sum,r) { return sum + (parseFloat(r.commission)||0); }, 0);
+    var adv = 0;
+    appData.staff.forEach(function(s) { (s.advances||[]).forEach(function(a) { if (a.date && a.date.startsWith(m)) adv += parseFloat(a.amount)||0; }); });
+    grandAmt += amt; grandCom += com; grandAdv += adv;
+    var rem = com - adv;
+    html += '<tr' + (m === selMonth ? ' style="background:var(--pink-light);font-weight:bold;"' : '') + '><td>' + m + '</td><td>\xA5' + amt.toFixed(0) + '</td><td>\xA5' + com.toFixed(2) + '</td><td>\xA5' + adv.toFixed(2) + '</td><td style="color:' + (rem>=0?'var(--green)':'var(--red)') + ';">\xA5' + rem.toFixed(2) + '</td></tr>';
+  });
+  html += '<tr style="background:#f5f5f5;font-weight:bold;"><td>总计</td><td>\xA5' + grandAmt.toFixed(0) + '</td><td>\xA5' + grandCom.toFixed(2) + '</td><td>\xA5' + grandAdv.toFixed(2) + '</td><td>\xA5' + (grandCom - grandAdv).toFixed(2) + '</td></tr>';
+  html += '</table>';
+
+  showModal('<h3>📊 月度业绩汇总</h3>' + html + '<button class="btn btn-gray mt-10" onclick="closeModal()">关闭</button>');
 }
 
 function showStaffModal() {
@@ -779,23 +842,25 @@ async function saveStaffRates(sid) {
 
 function showStaffRecords(sid) {
   var s = appData.staff.find(function(s) { return s.id === sid; }); if (!s) return;
-  var recs = appData.records.filter(function(r) { return r.staffName === s.name; });
+  var selMonth = getStaffMonth();
+  var recs = appData.records.filter(function(r) { return r.staffName === s.name && r.date && r.date.startsWith(selMonth); });
   recs = recs.sort(function(a,b) { return (b.date + (b.time||'')).localeCompare(a.date + (a.time||'')); });
   var total = recs.reduce(function(sum,r) { return sum + (parseFloat(r.commission)||0); }, 0);
   var totalAmount = recs.reduce(function(sum,r) { return sum + (parseFloat(r.amount)||0); }, 0);
-  var advances = s.advances || [];
+  var advances = (s.advances||[]).filter(function(a) { return a.date && a.date.startsWith(selMonth); });
   var totalAdvance = advances.reduce(function(sum,a) { return sum + (parseFloat(a.amount)||0); }, 0);
   var remaining = total - totalAdvance;
 
-  var html = '<div style="text-align:center;margin-bottom:12px;">';
+  var html = '<div style="text-align:center;margin-bottom:4px;font-weight:bold;color:var(--pink-dark);">' + selMonth + '</div>';
+  html += '<div style="text-align:center;margin-bottom:12px;">';
   html += '<span style="display:inline-block;margin:0 8px;"><b style="color:var(--pink-dark);font-size:16px;">' + recs.length + '</b> 笔</span>';
-  html += '<span style="display:inline-block;margin:0 8px;">实收 <b style="color:var(--pink-dark);">\xA5' + totalAmount.toFixed(0) + '</b></span>';
+  html += '<span style="display:inline-block;margin:0 8px;">业绩 <b style="color:var(--pink-dark);">\xA5' + totalAmount.toFixed(0) + '</b></span>';
   html += '<span style="display:inline-block;margin:0 8px;">提成 <b style="color:var(--green);">\xA5' + total.toFixed(2) + '</b></span>';
   html += '<span style="display:inline-block;margin:0 8px;">预支 <b style="color:var(--orange);">\xA5' + totalAdvance.toFixed(2) + '</b></span>';
   html += '<span style="display:inline-block;margin:0 8px;">未结 <b style="color:var(--blue);">\xA5' + remaining.toFixed(2) + '</b></span>';
   html += '</div>';
 
-  if (recs.length === 0) { html += '<div class="empty">暂无业绩记录</div>'; }
+  if (recs.length === 0) { html += '<div class="empty">' + selMonth + ' 暂无业绩记录</div>'; }
   else {
     html += '<table style="font-size:12px;"><tr><th>日期</th><th>时间</th><th>项目</th><th>类型</th><th>实收</th><th>提成</th><th>操作</th></tr>';
     recs.forEach(function(r) {
@@ -805,7 +870,7 @@ function showStaffRecords(sid) {
   }
 
   if (advances.length > 0) {
-    html += '<div class="section-title">预支提成记录</div><table style="font-size:12px;"><tr><th>日期</th><th>金额</th><th>备注</th></tr>';
+    html += '<div class="section-title">' + selMonth + ' 预支提成记录</div><table style="font-size:12px;"><tr><th>日期</th><th>金额</th><th>备注</th></tr>';
     advances.slice().reverse().forEach(function(a) { html += '<tr><td>' + fmtDate(a.date) + '</td><td>\xA5' + a.amount + '</td><td>' + esc(a.note||'-') + '</td></tr>'; });
     html += '</table>';
   }
@@ -873,21 +938,27 @@ async function delStaffRecord(rid, sid) {
 function showAdvanceModal(sid) {
   var s = appData.staff.find(function(s) { return s.id === sid; }); if (!s) return;
   if (!s.advances) s.advances = [];
-  var recs = appData.records.filter(function(r) { return r.staffName === s.name; });
-  var totalCommission = recs.reduce(function(sum,r) { return sum + (parseFloat(r.commission)||0); }, 0);
-  var totalAdvance = s.advances.reduce(function(sum,a) { return sum + (parseFloat(a.amount)||0); }, 0);
-  var remaining = totalCommission - totalAdvance;
+  var selMonth = getStaffMonth();
+  var recs = appData.records.filter(function(r) { return r.staffName === s.name && r.date && r.date.startsWith(selMonth); });
+  var monthCommission = recs.reduce(function(sum,r) { return sum + (parseFloat(r.commission)||0); }, 0);
+  var monthAdvances = s.advances.filter(function(a) { return a.date && a.date.startsWith(selMonth); });
+  var monthAdvance = monthAdvances.reduce(function(sum,a) { return sum + (parseFloat(a.amount)||0); }, 0);
+  var remaining = monthCommission - monthAdvance;
+  var allTotalCommission = appData.records.filter(function(r) { return r.staffName === s.name; }).reduce(function(sum,r) { return sum + (parseFloat(r.commission)||0); }, 0);
+  var allTotalAdvance = s.advances.reduce(function(sum,a) { return sum + (parseFloat(a.amount)||0); }, 0);
   var ah = '';
-  if (s.advances.length > 0) {
-    ah = '<div class="section-title">\u9884\u652F\u8BB0\u5F55</div><table style="font-size:12px;"><tr><th>\u65E5\u671F</th><th>\u91D1\u989D</th><th>\u5907\u6CE8</th></tr>';
-    s.advances.slice().reverse().forEach(function(a) { ah += '<tr><td>' + fmtDate(a.date) + '</td><td>\xA5' + a.amount + '</td><td>' + esc(a.note||'-') + '</td></tr>'; });
+  if (monthAdvances.length > 0) {
+    ah = '<div class="section-title">' + selMonth + ' 预支记录</div><table style="font-size:12px;"><tr><th>\u65E5\u671F</th><th>\u91D1\u989D</th><th>\u5907\u6CE8</th></tr>';
+    monthAdvances.slice().reverse().forEach(function(a) { ah += '<tr><td>' + fmtDate(a.date) + '</td><td>\xA5' + a.amount + '</td><td>' + esc(a.note||'-') + '</td></tr>'; });
     ah += '</table>';
   }
   showModal(
     '<h3>\u{1F4B8} ' + esc(s.name) + ' \u9884\u652F\u63D0\u6210</h3>' +
     '<div style="background:var(--pink-light);padding:10px;border-radius:8px;margin-bottom:12px;text-align:center;">' +
-    '<div style="font-size:12px;color:#666;">\u603B\u63D0\u6210 \xA5' + totalCommission.toFixed(2) + ' \u2502 \u5DF2\u9884\u652F \xA5' + totalAdvance.toFixed(2) + '</div>' +
-    '<div style="font-size:18px;font-weight:bold;color:' + (remaining >= 0 ? 'var(--green)' : 'var(--red)') + '">\u672A\u7ED3\u4F59\u989D \xA5' + remaining.toFixed(2) + '</div>' +
+    '<div style="font-size:13px;font-weight:bold;color:var(--pink-dark);margin-bottom:4px;">' + selMonth + '</div>' +
+    '<div style="font-size:12px;color:#666;">当月提成 \xA5' + monthCommission.toFixed(2) + ' \u2502 当月预支 \xA5' + monthAdvance.toFixed(2) + '</div>' +
+    '<div style="font-size:18px;font-weight:bold;color:' + (remaining >= 0 ? 'var(--green)' : 'var(--red)') + ';">当月未结 \xA5' + remaining.toFixed(2) + '</div>' +
+    '<div style="font-size:11px;color:#999;margin-top:4px;">（历史累计：总提成 \xA5' + allTotalCommission.toFixed(2) + ' \u2502 总预支 \xA5' + allTotalAdvance.toFixed(2) + '）</div>' +
     '</div>' +
     '<label>\u9884\u652F\u91D1\u989D(\u5143)</label><input type="number" id="advanceAmount" placeholder="0">' +
     '<label>\u65E5\u671F</label><input type="date" id="advanceDate" value="' + todayStr() + '">' +
