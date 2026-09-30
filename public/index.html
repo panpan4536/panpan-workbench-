@@ -153,6 +153,7 @@ table td { padding:8px; border-bottom:1px solid #f0f0f0; }
 <div class="stat-grid" id="homeStats">
 <div class="stat-box"><div class="num" id="statToday">0</div><div class="label">今日业绩(元)</div></div>
 <div class="stat-box green"><div class="num" id="statMonth">0</div><div class="label">本月业绩(元)</div></div>
+<div class="stat-box orange" style="cursor:pointer;border:2px solid #ffe0b2;" onclick="showCommissionQuery()"><div class="num" id="statMonthCommission">0</div><div class="label">本月总提成(元) 🔍</div></div>
 <div class="stat-box orange"><div class="num" id="statRecords">0</div><div class="label">总记录数</div></div>
 <div class="stat-box blue"><div class="num" id="statStaff">0</div><div class="label">员工人数</div></div>
 <div class="stat-box purple"><div class="num" id="statMembers">0</div><div class="label">会员人数</div></div>
@@ -453,13 +454,16 @@ function renderHome() {
     if (ovOrders) ovOrders.textContent = myToday.length;
     document.getElementById('statToday').textContent = myToday.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
     document.getElementById('statMonth').textContent = myMonth.reduce((s,r) => s + (parseFloat(r.amount)||0), 0).toFixed(0);
+    document.getElementById('statMonthCommission').textContent = myMonth.reduce((s,r) => s + (parseFloat(r.commission)||0), 0).toFixed(0);
     document.getElementById('statRecords').textContent = appData.records.filter(r => r.staffName === currentStaff.name).length;
   } else {
+    const monthCommission = monthRecs.reduce((s,r) => s + (parseFloat(r.commission)||0), 0);
     if (ovIncome) ovIncome.textContent = '\xA5' + todayTotal.toFixed(0);
     if (ovCommission) ovCommission.textContent = '\xA5' + todayCommission.toFixed(0);
     if (ovOrders) ovOrders.textContent = todayRecs.length;
     document.getElementById('statToday').textContent = todayTotal.toFixed(0);
     document.getElementById('statMonth').textContent = monthTotal.toFixed(0);
+    document.getElementById('statMonthCommission').textContent = monthCommission.toFixed(0);
     document.getElementById('statRecords').textContent = appData.records.length;
   }
   document.getElementById('statStaff').textContent = appData.staff.length;
@@ -486,6 +490,134 @@ function renderHome() {
     if (!ac) { ac = document.createElement('div'); ac.id = 'staffApptCard'; ac.className = 'card'; ac.innerHTML = '<h2>📅 今日预约</h2><div id="staffApptList"></div>'; todayCard.parentNode.insertBefore(ac, todayCard.nextSibling); }
     document.getElementById('staffApptList').innerHTML = ah;
   } else { const ac = document.getElementById('staffApptCard'); if (ac) ac.remove(); }
+}
+
+function showCommissionQuery() {
+  var isBoss = (currentRole === 'boss');
+  var staffFilterHtml = '';
+  if (isBoss) {
+    var opts = '<option value="">全部员工</option>' + appData.staff.map(function(s) { return '<option value="' + s.name + '">' + esc(s.name) + '</option>'; }).join('');
+    staffFilterHtml = '<div><label>筛选员工</label><select id="cqStaff" onchange="loadCommissionQuery()">' + opts + '</select></div>';
+  }
+  var typeOpts = '<option value="">全部类型</option><option value="散客">散客</option><option value="团购">团购</option><option value="会员卡">会员卡</option>';
+  showModal(
+    '<h3>\u{1F4B0} \u63D0\u6210\u67E5\u8BE2</h3>' +
+    '<div class="form-row">' +
+    '<div><label>\u67E5\u770B\u6708\u4EFD</label><input type="month" id="cqMonth" value="' + monthStr() + '" onchange="loadCommissionQuery()"></div>' +
+    staffFilterHtml +
+    '</div>' +
+    '<div class="form-row">' +
+    '<div><label>\u5BA2\u6237\u7C7B\u578B</label><select id="cqType" onchange="loadCommissionQuery()">' + typeOpts + '</select></div>' +
+    '<div><label>\u641C\u7D22\u5173\u952E\u8BCD</label><input type="text" id="cqSearch" placeholder="\u9879\u76EE/\u5907\u6CE8/\u91D1\u989D" oninput="loadCommissionQuery()"></div>' +
+    '</div>' +
+    '<div id="cqResult"></div>' +
+    '<div class="form-row mt-10">' +
+    '<button class="btn btn-green" onclick="copyCommissionSummary()">\u{1F4CB} \u590D\u5236\u63D0\u6210\u6C47\u603B</button>' +
+    '<button class="btn btn-gray" onclick="closeModal()">\u5173\u95ED</button>' +
+    '</div>'
+  );
+  loadCommissionQuery();
+}
+
+function loadCommissionQuery() {
+  var monthInput = document.getElementById('cqMonth');
+  var selMonth = monthInput ? monthInput.value : monthStr();
+  var staffSel = document.getElementById('cqStaff');
+  var filterStaff = staffSel ? staffSel.value : '';
+  var filterType = document.getElementById('cqType').value;
+  var search = (document.getElementById('cqSearch').value || '').trim().toLowerCase();
+
+  var recs = appData.records.filter(function(r) {
+    if (!r.date || !r.date.startsWith(selMonth)) return false;
+    if (currentRole === 'staff' && currentStaff && r.staffName !== currentStaff.name) return false;
+    if (filterStaff && r.staffName !== filterStaff) return false;
+    return true;
+  });
+  if (filterType) recs = recs.filter(function(r) { return r.type === filterType; });
+  if (search) recs = recs.filter(function(r) {
+    return (r.staffName||'').toLowerCase().indexOf(search) !== -1 ||
+           (r.projectName||'').toLowerCase().indexOf(search) !== -1 ||
+           (r.note||'').toLowerCase().indexOf(search) !== -1 ||
+           String(r.amount).indexOf(search) !== -1 ||
+           String(r.commission).indexOf(search) !== -1;
+  });
+  recs = recs.slice().sort(function(a,b) { return (b.date + (b.time||'')).localeCompare(a.date + (a.time||'')); });
+
+  var count = recs.length;
+  var totalAmount = recs.reduce(function(s,r) { return s + (parseFloat(r.amount)||0); }, 0);
+  var totalCommission = recs.reduce(function(s,r) { return s + (parseFloat(r.commission)||0); }, 0);
+
+  var html = '<div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px;">';
+  html += '<div class="stat-box"><div class="num">' + count + '</div><div class="label">\u7B14\u6570</div></div>';
+  html += '<div class="stat-box green"><div class="num">' + totalAmount.toFixed(0) + '</div><div class="label">\u4E1A\u7EE9(\u5143)</div></div>';
+  html += '<div class="stat-box orange"><div class="num">' + totalCommission.toFixed(2) + '</div><div class="label">\u63D0\u6210(\u5143)</div></div>';
+  html += '</div>';
+
+  var byStaff = {};
+  recs.forEach(function(r) {
+    if (!byStaff[r.staffName]) byStaff[r.staffName] = { count:0, amount:0, commission:0 };
+    byStaff[r.staffName].count++;
+    byStaff[r.staffName].amount += parseFloat(r.amount)||0;
+    byStaff[r.staffName].commission += parseFloat(r.commission)||0;
+  });
+  var staffKeys = Object.keys(byStaff).sort();
+  if (staffKeys.length > 0 && currentRole === 'boss') {
+    html += '<div class="section-title">\u6309\u5458\u5DE5</div><table style="font-size:12px;"><tr><th>\u5458\u5DE5</th><th>\u7B14\u6570</th><th>\u4E1A\u7EE9</th><th>\u63D0\u6210</th></tr>';
+    staffKeys.forEach(function(n) {
+      var s = byStaff[n];
+      html += '<tr><td>' + esc(n) + '</td><td>' + s.count + '</td><td>\xA5' + s.amount.toFixed(0) + '</td><td>\xA5' + s.commission.toFixed(2) + '</td></tr>';
+    });
+    html += '</table>';
+  }
+
+  html += '<div class="section-title">\u63D0\u6210\u660E\u7EC6</div>';
+  if (recs.length === 0) { html += '<div class="empty">' + esc(selMonth) + ' \u6682\u65E0\u7B26\u5408\u6761\u4EF6\u7684\u8BB0\u5F55</div>'; }
+  else {
+    html += '<table style="font-size:12px;"><tr><th>\u65E5\u671F</th><th>\u65F6\u95F4</th><th>\u5458\u5DE5</th><th>\u9879\u76EE</th><th>\u7C7B\u578B</th><th>\u5B9E\u6536</th><th>\u63D0\u6210</th></tr>';
+    recs.forEach(function(r) {
+      html += '<tr><td>' + fmtDate(r.date) + '</td><td>' + (r.time||'') + '</td><td>' + esc(r.staffName) + '</td><td>' + esc(r.projectName) + '</td><td>' + esc(r.type) + '</td><td>\xA5' + r.amount + '</td><td>\xA5' + r.commission + '</td></tr>';
+    });
+    html += '</table>';
+  }
+
+  document.getElementById('cqResult').innerHTML = html;
+  window._cqData = { month: selMonth, staff: filterStaff, type: filterType, records: recs, count: count, totalAmount: totalAmount, totalCommission: totalCommission, byStaff: byStaff };
+}
+
+function copyCommissionSummary() {
+  var d = window._cqData;
+  if (!d) return;
+  var text = '\u6F58\u6F58\u7F8E\u7532\u7F8E\u776B \xB7 \u63D0\u6210\u6C47\u603B\n';
+  text += '\u6708\u4EFD\uFF1A' + d.month + '\n';
+  if (d.staff) text += '\u5458\u5DE5\uFF1A' + d.staff + '\n';
+  if (d.type) text += '\u7C7B\u578B\uFF1A' + d.type + '\n';
+  text += '==================\n';
+  text += '\u7B14\u6570\uFF1A' + d.count + ' \u7B14\n';
+  text += '\u603B\u4E1A\u7EE9\uFF1A\xA5' + d.totalAmount.toFixed(2) + '\n';
+  text += '\u603B\u63D0\u6210\uFF1A\xA5' + d.totalCommission.toFixed(2) + '\n';
+  var keys = Object.keys(d.byStaff).sort();
+  if (keys.length > 0) {
+    text += '------------------\n';
+    keys.forEach(function(n) {
+      var s = d.byStaff[n];
+      text += n + '\uFF1A' + s.count + '\u7B14 \u2502 \u4E1A\u7EE9\xA5' + s.amount.toFixed(2) + ' \u2502 \u63D0\u6210\xA5' + s.commission.toFixed(2) + '\n';
+    });
+  }
+  text += '==================\n';
+  text += '* \u6F58\u6F58\u5DE5\u4F5C\u53F0\u751F\u6210 *';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() { showToast('\u2705 \u5DF2\u590D\u5236\u63D0\u6210\u6C47\u603B'); }).catch(function() { fallbackCopyCommission(text); });
+  } else { fallbackCopyCommission(text); }
+}
+function fallbackCopyCommission(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); showToast('\u2705 \u5DF2\u590D\u5236\u63D0\u6210\u6C47\u603B'); }
+  catch(e) { showToast('\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u4E2D'); }
+  document.body.removeChild(ta);
 }
 
 function editRecord(id) {
